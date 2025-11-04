@@ -1,0 +1,117 @@
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import io, { Socket } from 'socket.io-client';
+import { useAuth } from './AuthContext';
+import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
+
+// Use environment variable for production, fallback to localhost for development
+const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+interface SocketContextType {
+  socket: Socket | null;
+  isConnected: boolean;
+}
+
+const SocketContext = createContext<SocketContextType | undefined>(undefined);
+
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) {
+    throw new Error('useSocket must be used within a SocketProvider');
+  }
+  return context;
+};
+
+interface SocketProviderProps {
+  children: ReactNode;
+}
+
+export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (user) {
+      const socketUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
+      const newSocket = io(socketUrl, {
+        transports: ['websocket', 'polling'],
+        withCredentials: true,
+      });
+
+      newSocket.on('connect', () => {
+        console.log('Connected to server');
+        setIsConnected(true);
+        newSocket.emit('join-user-room', user.id);
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        setIsConnected(false);
+      });
+
+      // Listen for real-time updates
+      newSocket.on('transaction-created', (data) => {
+        toast.success('Nueva transacción agregada');
+      });
+
+      newSocket.on('transaction-updated', (data) => {
+        toast('Transacción actualizada', {
+          icon: '📝',
+        });
+      });
+
+      newSocket.on('transaction-deleted', (data) => {
+        toast('Transacción eliminada', {
+          icon: '🗑️',
+        });
+      });
+
+      newSocket.on('budget-alert', (data) => {
+        toast.error(
+          `¡Alerta de presupuesto! Has gastado ${data.percentage.toFixed(0)}% de tu presupuesto de ${data.categoryName}`,
+          { duration: 6000 }
+        );
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      });
+
+      newSocket.on('budget-updated', (data) => {
+        toast.success('Presupuesto actualizado');
+      });
+
+      newSocket.on('category-updated', (data) => {
+        toast('Categoría actualizada', {
+          icon: '📁',
+        });
+      });
+
+      newSocket.on('new-notification', (notification) => {
+        // Show toast based on notification type
+        const icon = notification.type === 'budget_alert' ? '⚠️' : 
+                     notification.type === 'goal_achieved' ? '🎉' : 
+                     notification.type === 'transaction' ? '💰' : 'ℹ️';
+        
+        toast(notification.message, {
+          icon: icon,
+          duration: 5000
+        });
+        
+        // Refetch notifications to update badge count
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      });
+
+      setSocket(newSocket);
+
+      return () => {
+        newSocket.close();
+      };
+    }
+  }, [user]);
+
+  return (
+    <SocketContext.Provider value={{ socket, isConnected }}>
+      {children}
+    </SocketContext.Provider>
+  );
+};

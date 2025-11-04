@@ -1,0 +1,23 @@
+# Environment Variables Template
+# Copy this to .env and fill in your values
+
+# ===== BACKEND (.env in root) =====
+
+# Server Configuration
+NODE_ENV=production
+PORT=5000
+
+# Database
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/financial_app
+
+# Authentication
+JWT_SECRET=your-very-secure-random-string-change-this-in-production
+
+# Client URL (for CORS)
+CLIENT_URL=https://your-app.vercel.app
+
+# ===== FRONTEND (client/.env.production) =====
+
+# API URLs
+REACT_APP_API_URL=https://your-backend.railway.app
+REACT_APP_SOCKET_URL=https://your-backend.railway.app

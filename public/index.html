@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Organizador Financiero</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4A90E2">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>💰 Mi Organizador Financiero</h1>
+            <div class="header-controls">
+                <select id="monthSelect" class="month-select">
+                    <option value="01">Enero</option>
+                    <option value="02">Febrero</option>
+                    <option value="03">Marzo</option>
+                    <option value="04">Abril</option>
+                    <option value="05">Mayo</option>
+                    <option value="06">Junio</option>
+                    <option value="07">Julio</option>
+                    <option value="08">Agosto</option>
+                    <option value="09">Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                </select>
+                <select id="yearSelect" class="year-select">
+                    <option value="2024">2024</option>
+                    <option value="2025">2025</option>
+                    <option value="2026">2026</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="dashboard">
+                <span class="tab-icon">📊</span>
+                <span class="tab-label">Resumen</span>
+            </button>
+            <button class="tab-btn" data-tab="transactions">
+                <span class="tab-icon">📝</span>
+                <span class="tab-label">Movimientos</span>
+            </button>
+            <button class="tab-btn" data-tab="budgets">
+                <span class="tab-icon">🎯</span>
+                <span class="tab-label">Presupuesto</span>
+            </button>
+            <button class="tab-btn" data-tab="add">
+                <span class="tab-icon">➕</span>
+                <span class="tab-label">Agregar</span>
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content active">
+                <!-- Summary Cards -->
+                <div class="summary-cards">
+                    <div class="summary-card income">
+                        <div class="card-icon">💵</div>
+                        <div class="card-content">
+                            <div class="card-label">Ingresos</div>
+                            <div class="card-value" id="totalIncome">S/ 0</div>
+                        </div>
+                    </div>
+                    <div class="summary-card expense">
+                        <div class="card-icon">💸</div>
+                        <div class="card-content">
+                            <div class="card-label">Gastos</div>
+                            <div class="card-value" id="totalExpenses">S/ 0</div>
+                        </div>
+                    </div>
+                    <div class="summary-card balance">
+                        <div class="card-icon">💰</div>
+                        <div class="card-content">
+                            <div class="card-label">Balance</div>
+                            <div class="card-value" id="balance">S/ 0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="charts-section">
+                    <div class="chart-container">
+                        <h3>Gastos por Categoría</h3>
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Gastos por Persona</h3>
+                        <div id="personExpenses" class="person-list"></div>
+                    </div>
+                </div>
+
+                <!-- Recent Transactions -->
+                <div class="recent-section">
+                    <h3>Movimientos Recientes</h3>
+                    <div id="recentTransactions" class="transaction-list"></div>
+                </div>
+            </div>
+
+            <!-- Transactions Tab -->
+            <div id="transactions" class="tab-content">
+                <div class="filters">
+                    <select id="filterType" class="filter-select">
+                        <option value="">Todos</option>
+                        <option value="income">Ingresos</option>
+                        <option value="expense">Gastos</option>
+                    </select>
+                    <select id="filterPerson" class="filter-select">
+                        <option value="">Todas las personas</option>
+                    </select>
+                </div>
+                <div id="transactionsList" class="transaction-list"></div>
+            </div>
+
+            <!-- Budgets Tab -->
+            <div id="budgets" class="tab-content">
+                <div class="budget-list" id="budgetList"></div>
+                <button class="btn btn-primary" onclick="showBudgetModal()">
+                    <span>➕</span> Configurar Presupuesto
+                </button>
+            </div>
+
+            <!-- Add Transaction Tab -->
+            <div id="add" class="tab-content">
+                <form id="transactionForm" class="transaction-form">
+                    <div class="form-group">
+                        <label>Tipo</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="type" value="expense" checked>
+                                <span class="radio-custom expense">Gasto</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="type" value="income">
+                                <span class="radio-custom income">Ingreso</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amount">Monto (S/)</label>
+                        <input type="number" id="amount" name="amount" step="0.01" required placeholder="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="category">Categoría</label>
+                        <select id="category" name="category_id" required>
+                            <option value="">Seleccionar categoría</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Descripción</label>
+                        <input type="text" id="description" name="description" placeholder="Descripción opcional">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date">Fecha</label>
+                        <input type="date" id="date" name="date" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="person">Persona</label>
+                        <input type="text" id="person" name="person" placeholder="Ej: Comida, Higiene, Perros">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="is_recurring" name="is_recurring">
+                            <span>Es un gasto recurrente</span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <span>💾</span> Guardar Transacción
+                    </button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="budgetModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Configurar Presupuesto</h2>
+                <button class="modal-close" onclick="closeBudgetModal()">&times;</button>
+            </div>
+            <form id="budgetForm" class="budget-form">
+                <div class="form-group">
+                    <label for="budgetCategory">Categoría</label>
+                    <select id="budgetCategory" name="category_id" required>
+                        <option value="">Seleccionar categoría</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="budgetAmount">Monto Presupuestado (S/)</label>
+                    <input type="number" id="budgetAmount" name="amount" step="0.01" required placeholder="0.00">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Guardar Presupuesto</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Transaction Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Editar Transacción</h2>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <form id="editForm" class="transaction-form">
+                <input type="hidden" id="editId">
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="editType" value="expense">
+                            <span class="radio-custom expense">Gasto</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="editType" value="income">
+                            <span class="radio-custom income">Ingreso</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="editAmount">Monto (S/)</label>
+                    <input type="number" id="editAmount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="editCategory">Categoría</label>
+                    <select id="editCategory" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="editDescription">Descripción</label>
+                    <input type="text" id="editDescription">
+                </div>
+                <div class="form-group">
+                    <label for="editDate">Fecha</label>
+                    <input type="date" id="editDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="editPerson">Persona</label>
+                    <input type="text" id="editPerson">
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteTransaction()">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
