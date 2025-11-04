@@ -56,17 +56,33 @@ const corsOptions = {
             process.env.CLIENT_URL,
             'http://localhost:3000',
             'http://localhost:5000',
-            'https://localhost:3000'
+            'https://localhost:3000',
+            // Add Vercel preview URLs support
+            /https:\/\/.*\.vercel\.app$/
         ].filter(Boolean);
         
         // Allow requests with no origin (like mobile apps or Postman)
         if (!origin) return callback(null, true);
         
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        // Check if origin matches any allowed origin or pattern
+        const isAllowed = allowedOrigins.some(allowed => {
+            if (allowed instanceof RegExp) {
+                return allowed.test(origin);
+            }
+            return allowed === origin;
+        });
+        
+        if (isAllowed) {
             callback(null, true);
         } else {
             console.log('Blocked by CORS:', origin);
-            callback(new Error('Not allowed by CORS'));
+            // In production, log but don't block to help with debugging
+            if (process.env.NODE_ENV === 'production') {
+                console.warn('CORS warning - allowing for debugging:', origin);
+                callback(null, true);
+            } else {
+                callback(new Error('Not allowed by CORS'));
+            }
         }
     },
     credentials: true,

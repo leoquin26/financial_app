@@ -1,0 +1,55 @@
+🚀 QUICK DEPLOYMENT STEPS
+========================
+
+FRONTEND (Vercel) + BACKEND (Railway)
+
+📋 STEP-BY-STEP DEPLOYMENT:
+
+1️⃣ MONGODB ATLAS (5 minutes)
+   • Go to mongodb.com/atlas
+   • Create free M0 cluster
+   • Add database user
+   • Allow access from 0.0.0.0/0
+   • Copy connection string
+
+2️⃣ DEPLOY BACKEND TO RAILWAY (5 minutes)
+   • Go to railway.app
+   • New Project → Deploy from GitHub
+   • Select your repo
+   • Set root directory: server
+   • Add environment variables:
+     - MONGODB_URI = [your mongodb connection string]
+     - JWT_SECRET = [generate random string]
+     - CLIENT_URL = https://[your-app].vercel.app
+     - NODE_ENV = production
+   • Deploy and get your backend URL
+
+3️⃣ DEPLOY FRONTEND TO VERCEL (5 minutes)
+   • Go to vercel.com
+   • Import GitHub repository
+   • Set root directory: client
+   • Add environment variable:
+     - REACT_APP_API_URL = https://[your-backend].railway.app
+   • Deploy!
+
+4️⃣ UPDATE RAILWAY
+   • Update CLIENT_URL with your actual Vercel URL
+   • Railway will auto-redeploy
+
+✅ DONE! Your app is live!
+
+📝 TEST URLS:
+   • Frontend: https://[your-app].vercel.app
+   • Backend Health: https://[your-backend].railway.app/api/health
+
+🔑 DEFAULT LOGIN:
+   • Username: demo
+   • Password: demo123
+
+🆘 TROUBLESHOOTING:
+   • Check Railway logs for backend errors
+   • Check Vercel function logs for build errors
+   • Ensure all environment variables are set correctly
+   • MongoDB must allow connections from anywhere
+
+📚 Full guide: RAILWAY_VERCEL_DEPLOYMENT.md
