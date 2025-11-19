@@ -234,6 +234,7 @@ weeklyBudgetSchema.methods.addPaymentToCategory = function(categoryId, payment) 
   
   // Only check allocation if it's set (greater than 0)
   // This allows categories to be used without predefined allocations
+  // Updated: Allow unlimited payments when allocation is 0
   if (category.allocation > 0) {
     const totalInCategory = category.payments.reduce((sum, p) => sum + p.amount, 0);
     if (totalInCategory + payment.amount > category.allocation) {
