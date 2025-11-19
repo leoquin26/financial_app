@@ -48,6 +48,7 @@ import {
   Group as GroupIcon,
   NavigateNext as NavigateNextIcon,
   ArrowBack as ArrowBackIcon,
+  AccountBalance as AccountBalanceIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../config/api';
@@ -461,7 +462,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
 
       {/* Budget Overview */}
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -473,9 +474,14 @@ const WeeklyBudgetSimplified: React.FC = () => {
                     ${currentBudget?.totalBudget?.toFixed(2) || '0.00'}
                   </Typography>
                   {currentBudget?.totalBudget > 0 && (
-                    <Typography variant="caption" color="textSecondary">
-                      ${(currentBudget.totalBudget - totalScheduled).toFixed(2)} remaining
-                    </Typography>
+                    <Box>
+                      <Typography variant="caption" color="textSecondary" display="block">
+                        After scheduled: ${(currentBudget.totalBudget - totalScheduled).toFixed(2)}
+                      </Typography>
+                      <Typography variant="caption" color="success.main" fontWeight="bold">
+                        After paid: ${(currentBudget.totalBudget - totalSpent).toFixed(2)}
+                      </Typography>
+                    </Box>
                   )}
                 </Box>
                 <BudgetIcon color="primary" fontSize="large" />
@@ -484,7 +490,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -511,7 +517,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -532,7 +538,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={3}>
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <Card sx={{ 
             borderColor: currentBudget?.totalBudget && totalScheduled > currentBudget.totalBudget ? 'error.main' : undefined, 
             borderWidth: currentBudget?.totalBudget && totalScheduled > currentBudget.totalBudget ? 2 : 1 
@@ -556,6 +562,36 @@ const WeeklyBudgetSimplified: React.FC = () => {
                 ) : (
                   <CheckIcon color="success" fontSize="large" />
                 )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Available Balance Card */}
+        <Grid item xs={12} sm={6} md={4} lg={2.4}>
+          <Card sx={{ 
+            borderColor: 'success.main',
+            borderWidth: 2,
+            borderStyle: 'solid'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography color="textSecondary" variant="body2">
+                    Available Balance
+                  </Typography>
+                  <Typography 
+                    variant="h5" 
+                    fontWeight="bold"
+                    color="success.main"
+                  >
+                    ${currentBudget?.totalBudget > 0 ? (currentBudget.totalBudget - totalSpent).toFixed(2) : '0.00'}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    Real balance after paid expenses
+                  </Typography>
+                </Box>
+                <AccountBalanceIcon color="success" fontSize="large" />
               </Box>
             </CardContent>
           </Card>

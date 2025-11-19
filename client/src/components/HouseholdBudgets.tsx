@@ -93,7 +93,7 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
     queryFn: async () => {
       console.log('Fetching household budgets, householdId:', householdId);
       // Force refresh to get properly populated data
-      const response = await axios.get(`/api/weekly-budget/household/${householdId}?refresh=true`);
+      const response = await axios.get(`/api/weekly-budget/household/${householdId}`);
       console.log('Fetched shared budgets:', response.data);
       return response.data as SharedBudget[];
     },
@@ -399,31 +399,6 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
               size="small"
             >
               {isExpanded ? 'Hide Details' : 'View Details'}
-            </Button>
-            <Button
-              onClick={async () => {
-                try {
-                  console.log('Syncing budget:', budget._id);
-                  const syncResponse = await axios.post(`/api/weekly-budget/${budget._id}/sync-categories`);
-                  console.log('Sync response:', syncResponse.data);
-                  
-                  // Force a hard refresh of the data
-                  queryClient.invalidateQueries({ queryKey: ['householdBudgets'] });
-                  queryClient.invalidateQueries({ queryKey: ['householdBudgets', householdId] });
-                  
-                  // Wait a bit for backend to complete
-                  setTimeout(() => {
-                    refetch();
-                  }, 500);
-                } catch (error) {
-                  console.error('Failed to sync:', error);
-                  toast.error('Failed to refresh data');
-                }
-              }}
-              size="small"
-              variant="outlined"
-            >
-              Refresh Data
             </Button>
             {/* Fix paidBy button */}
             <Button

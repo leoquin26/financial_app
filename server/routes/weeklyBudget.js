@@ -1199,7 +1199,9 @@ router.get('/household/:householdId', auth, async (req, res) => {
           needsSync
         });
         
-        if (needsSync && budget._id) {
+        // IMPORTANT: Do NOT sync if budget already has categories with payments
+        // This preserves the payment statuses that were set in the original budget
+        if (needsSync && budget._id && (!budget.categories || budget.categories.length === 0)) {
           console.log(`Syncing categories for budget ${budget._id}`);
           
           // Get payments from PaymentSchedule model with dueDate
