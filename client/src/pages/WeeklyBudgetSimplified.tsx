@@ -93,6 +93,15 @@ const WeeklyBudgetSimplified: React.FC = () => {
   const [openShareDialog, setOpenShareDialog] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [openCategorySelector, setOpenCategorySelector] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<any>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string>('');
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [editPaymentData, setEditPaymentData] = useState({
+    name: '',
+    amount: '',
+    scheduledDate: '',
+    notes: ''
+  });
 
   const currentWeekStart = startOfWeek(new Date());
   const currentWeekEnd = endOfWeek(new Date());
@@ -178,6 +187,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['weeklyBudget'] });
       queryClient.invalidateQueries({ queryKey: ['weeklyBudget', weekId] });
+      queryClient.invalidateQueries({ queryKey: ['mainBudgets'] }); // Refresh main budgets to show updated amount
       toast.success('Budget set successfully! Now add categories.');
       setOpenBudgetDialog(false);
       // Open category selector right after creating budget
@@ -321,6 +331,55 @@ const WeeklyBudgetSimplified: React.FC = () => {
   const handlePaymentStatusChange = (paymentId: string, newStatus: string) => {
     updateStatusMutation.mutate({ paymentId, status: newStatus });
   };
+
+  // Handle edit payment
+  const handleEditPayment = (payment: any, categoryId: string) => {
+    setEditingPayment(payment);
+    setEditingCategoryId(categoryId);
+    setEditPaymentData({
+      name: payment.name,
+      amount: payment.amount.toString(),
+      scheduledDate: payment.scheduledDate || payment.dueDate,
+      notes: payment.notes || ''
+    });
+    setOpenEditDialog(true);
+  };
+
+  // Handle delete payment
+  const handleDeletePayment = async (paymentId: string, categoryId: string) => {
+    if (!window.confirm('Are you sure you want to delete this payment?')) {
+      return;
+    }
+
+    try {
+      await axios.delete(`/api/weekly-budget/${currentBudget._id}/payment/${paymentId}`);
+      
+      queryClient.invalidateQueries({ queryKey: ['weeklyBudget'] });
+      toast.success('Payment deleted successfully');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to delete payment');
+    }
+  };
+
+  // Update payment mutation
+  const updatePaymentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await axios.patch(
+        `/api/weekly-budget/${currentBudget._id}/payment/${editingPayment._id}`,
+        data
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['weeklyBudget'] });
+      toast.success('Payment updated successfully');
+      setOpenEditDialog(false);
+      setEditingPayment(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update payment');
+    }
+  });
 
   // Share budget mutation
   const shareBudgetMutation = useMutation({
@@ -852,11 +911,28 @@ const WeeklyBudgetSimplified: React.FC = () => {
                               <Typography variant="h6" fontWeight="bold" color="primary">
                                 ${payment.amount.toFixed(2)}
                               </Typography>
-                              <PaymentStatusDropdown
-                                paymentId={payment._id}
-                                currentStatus={payment.status}
-                                onStatusChange={handlePaymentStatusChange}
-                              />
+                              <Box display="flex" alignItems="center" gap={1}>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => handleEditPayment(payment, category._id)}
+                                  title="Edit payment"
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => handleDeletePayment(payment._id, category._id)}
+                                  color="error"
+                                  title="Delete payment"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                                <PaymentStatusDropdown
+                                  paymentId={payment._id}
+                                  currentStatus={payment.status}
+                                  onStatusChange={handlePaymentStatusChange}
+                                />
+                              </Box>
                             </Box>
                           </Box>
                         </Paper>
@@ -998,6 +1074,74 @@ const WeeklyBudgetSimplified: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenShareDialog(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Payment Dialog */}
+      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Payment</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              label="Payment Name"
+              fullWidth
+              value={editPaymentData.name}
+              onChange={(e) => setEditPaymentData({ ...editPaymentData, name: e.target.value })}
+              margin="normal"
+            />
+            <TextField
+              label="Amount"
+              type="number"
+              fullWidth
+              value={editPaymentData.amount}
+              onChange={(e) => setEditPaymentData({ ...editPaymentData, amount: e.target.value })}
+              margin="normal"
+              InputProps={{
+                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+              }}
+            />
+            <TextField
+              label="Date"
+              type="date"
+              fullWidth
+              value={editPaymentData.scheduledDate ? format(new Date(editPaymentData.scheduledDate), 'yyyy-MM-dd') : ''}
+              onChange={(e) => setEditPaymentData({ ...editPaymentData, scheduledDate: e.target.value })}
+              margin="normal"
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="Notes (Optional)"
+              fullWidth
+              multiline
+              rows={2}
+              value={editPaymentData.notes}
+              onChange={(e) => setEditPaymentData({ ...editPaymentData, notes: e.target.value })}
+              margin="normal"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (!editPaymentData.name || !editPaymentData.amount) {
+                toast.error('Please fill in all required fields');
+                return;
+              }
+              
+              updatePaymentMutation.mutate({
+                name: editPaymentData.name,
+                amount: parseFloat(editPaymentData.amount),
+                scheduledDate: editPaymentData.scheduledDate,
+                notes: editPaymentData.notes,
+                categoryId: editingCategoryId
+              });
+            }}
+            disabled={updatePaymentMutation.isPending}
+          >
+            {updatePaymentMutation.isPending ? 'Saving...' : 'Save Changes'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>

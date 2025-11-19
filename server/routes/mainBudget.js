@@ -319,11 +319,15 @@ router.post('/:id/weekly/:weekNumber', auth, async (req, res) => {
       req.user._id
     );
     
-    // Update main budget with the reference
+    // Update main budget with the reference and budget amount
     const weekIndex = mainBudget.weeklyBudgets.findIndex(w => w.weekNumber === weekNum);
     if (weekIndex !== -1) {
       mainBudget.weeklyBudgets[weekIndex].budgetId = weeklyBudget._id;
       mainBudget.weeklyBudgets[weekIndex].status = 'active';
+      // Update allocatedAmount to match the weekly budget
+      if (weeklyBudget.totalBudget > 0) {
+        mainBudget.weeklyBudgets[weekIndex].allocatedAmount = weeklyBudget.totalBudget;
+      }
       await mainBudget.save();
     }
     
@@ -619,6 +623,51 @@ router.post('/:id/cleanup-future-weeks', auth, async (req, res) => {
   } catch (error) {
     console.error('Error cleaning future weeks:', error);
     res.status(500).json({ error: 'Failed to clean future weeks' });
+  }
+});
+
+// Recalculate total budget from weekly allocations
+router.post('/:id/recalculate-total', auth, async (req, res) => {
+  try {
+    const mainBudget = await MainBudget.findOne({
+      _id: req.params.id,
+      $or: [
+        { userId: req.user._id },
+        { householdId: { $in: req.user.households } }
+      ]
+    });
+    
+    if (!mainBudget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Calculate total from weekly allocations
+    let newTotal = 0;
+    for (const week of mainBudget.weeklyBudgets) {
+      newTotal += week.allocatedAmount || 0;
+    }
+    
+    // Update the total budget
+    mainBudget.totalBudget = newTotal;
+    await mainBudget.save();
+    
+    // Update analytics
+    await mainBudget.updateAnalytics();
+    await mainBudget.save();
+    
+    // Populate and return
+    await mainBudget.populate('categories.categoryId', 'name color icon');
+    await mainBudget.populate('weeklyBudgets.budgetId');
+    
+    console.log(`Recalculated budget ${mainBudget.name}: total = ${newTotal}`);
+    
+    res.json({
+      ...mainBudget.toObject(),
+      message: `Total budget updated to $${newTotal.toFixed(2)}`
+    });
+  } catch (error) {
+    console.error('Error recalculating budget:', error);
+    res.status(500).json({ error: 'Failed to recalculate budget' });
   }
 });
 

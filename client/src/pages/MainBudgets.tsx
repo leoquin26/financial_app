@@ -49,6 +49,7 @@ import {
   Warning as WarningIcon,
   CleaningServices as CleaningServicesIcon,
   History as HistoryIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../config/api';
@@ -203,6 +204,8 @@ const MainBudgets: React.FC = () => {
       const response = await axios.get('/api/main-budgets', { params });
       return response.data as MainBudget[];
     },
+    refetchInterval: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
   // Navigate to weekly budget
@@ -211,6 +214,9 @@ const MainBudgets: React.FC = () => {
       // Create or get the weekly budget
       const response = await axios.post(`/api/main-budgets/${mainBudgetId}/weekly/${weekNumber}`);
       const weeklyBudget = response.data;
+      
+      // Invalidate main budgets to ensure fresh data when returning
+      queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
       
       // Navigate to the weekly budget page
       navigate(`/budgets/week/${weeklyBudget._id}`);
@@ -222,6 +228,30 @@ const MainBudgets: React.FC = () => {
 
   // Get current/active budgets
   const activeBudgets = budgets.filter(b => b.isCurrentPeriod && b.status === 'active');
+
+  // Auto-recalculate budgets where total doesn't match sum of weekly allocations
+  React.useEffect(() => {
+    const recalculateBudgets = async () => {
+      for (const budget of activeBudgets) {
+        // Calculate sum of weekly allocations
+        const weeklySum = budget.weeklyBudgets.reduce((sum, week) => sum + (week.allocatedAmount || 0), 0);
+        
+        // If total doesn't match the sum, recalculate
+        if (budget.totalBudget !== weeklySum && weeklySum > 0) {
+          try {
+            await axios.post(`/api/main-budgets/${budget._id}/recalculate-total`);
+            queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+          } catch (error) {
+            console.error('Failed to auto-recalculate budget:', budget._id);
+          }
+        }
+      }
+    };
+
+    if (activeBudgets.length > 0) {
+      recalculateBudgets();
+    }
+  }, [activeBudgets]); // Run when active budgets change
 
   if (isLoading) {
     return (
@@ -321,9 +351,19 @@ const MainBudgets: React.FC = () => {
       {/* Active Budgets */}
       {activeBudgets.length > 0 && (
         <Box mb={4}>
-          <Typography variant="h6" fontWeight="bold" mb={2}>
-            Active Budgets
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6" fontWeight="bold">
+              Active Budgets
+            </Typography>
+            <Button
+              startIcon={<RefreshIcon />}
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['mainBudgets'] })}
+              size="small"
+              variant="outlined"
+            >
+              Refresh
+            </Button>
+          </Box>
           {activeBudgets.map(budget => (
             <Paper key={budget._id} sx={{ p: 3, mb: 3 }}>
               <Grid container spacing={3}>
@@ -359,9 +399,34 @@ const MainBudgets: React.FC = () => {
                           <Typography variant="caption" color="textSecondary">
                             Total Budget
                           </Typography>
-                          <Typography variant="h6" fontWeight="bold">
-                            ${budget.totalBudget.toLocaleString()}
-                          </Typography>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="h6" fontWeight="bold">
+                              ${budget.totalBudget.toLocaleString()}
+                            </Typography>
+                            {(() => {
+                              const weeklySum = budget.weeklyBudgets.reduce((sum, week) => sum + (week.allocatedAmount || 0), 0);
+                              return budget.totalBudget !== weeklySum && weeklySum > 0;
+                            })() && (
+                              <Tooltip title={`Update total to $${budget.weeklyBudgets.reduce((sum, week) => sum + (week.allocatedAmount || 0), 0).toLocaleString()}`}>
+                                <IconButton
+                                  size="small"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await axios.post(`/api/main-budgets/${budget._id}/recalculate-total`);
+                                      queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+                                      toast.success('Total budget updated');
+                                    } catch (error) {
+                                      toast.error('Failed to recalculate total');
+                                    }
+                                  }}
+                                  color="primary"
+                                >
+                                  <RefreshIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
                         </Box>
                         <Box>
                           <Typography variant="caption" color="textSecondary">
@@ -689,9 +754,34 @@ const MainBudgets: React.FC = () => {
                         <Typography variant="caption" color="textSecondary">
                           Budget
                         </Typography>
-                        <Typography variant="h6">
-                          ${budget.totalBudget.toLocaleString()}
-                        </Typography>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Typography variant="h6">
+                            ${budget.totalBudget.toLocaleString()}
+                          </Typography>
+                          {(() => {
+                            const weeklySum = budget.weeklyBudgets.reduce((sum, week) => sum + (week.allocatedAmount || 0), 0);
+                            return budget.totalBudget !== weeklySum && weeklySum > 0;
+                          })() && (
+                            <Tooltip title={`Update total to $${budget.weeklyBudgets.reduce((sum, week) => sum + (week.allocatedAmount || 0), 0).toLocaleString()}`}>
+                              <IconButton
+                                size="small"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    await axios.post(`/api/main-budgets/${budget._id}/recalculate-total`);
+                                    queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+                                    toast.success('Total budget updated');
+                                  } catch (error) {
+                                    toast.error('Failed to recalculate total');
+                                  }
+                                }}
+                                color="primary"
+                              >
+                                <RefreshIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
                       </Box>
                       <Box textAlign="right">
                         <Typography variant="caption" color="textSecondary">

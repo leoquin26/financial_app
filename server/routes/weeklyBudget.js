@@ -783,6 +783,25 @@ router.patch('/:budgetId', auth, async (req, res) => {
     
     await budget.save();
     
+    // Update the parent MainBudget if this weekly budget is linked to one
+    if (budget.parentBudgetId && totalBudget !== undefined) {
+      const MainBudget = require('../models/MainBudget');
+      const mainBudget = await MainBudget.findById(budget.parentBudgetId);
+      
+      if (mainBudget) {
+        // Find and update the corresponding week in the weeklyBudgets array
+        const weekIndex = mainBudget.weeklyBudgets.findIndex(
+          w => w.budgetId && w.budgetId.toString() === budget._id.toString()
+        );
+        
+        if (weekIndex !== -1) {
+          mainBudget.weeklyBudgets[weekIndex].allocatedAmount = totalBudget;
+          await mainBudget.save();
+          console.log(`Updated MainBudget week ${mainBudget.weeklyBudgets[weekIndex].weekNumber} allocatedAmount to ${totalBudget}`);
+        }
+      }
+    }
+    
     // Populate and return
     await budget.populate('categories.categoryId');
     await budget.populate('categories.payments.paidBy');
@@ -1848,11 +1867,11 @@ router.get('/:budgetId/check-paidby', auth, async (req, res) => {
   }
 });
 
-// Update payment status in weekly budget
+// Update payment in weekly budget
 router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
   try {
     const { budgetId, paymentId } = req.params;
-    const { status, paidBy } = req.body;
+    const { status, paidBy, name, amount, scheduledDate, notes, categoryId } = req.body;
     
     const budget = await WeeklyBudget.findOne({
       _id: budgetId,
@@ -1868,6 +1887,8 @@ router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
     
     // Find and update the payment in categories
     let paymentFound = false;
+    let oldCategoryId = null;
+    
     for (const category of budget.categories) {
       const paymentIndex = category.payments.findIndex(p => 
         p._id.toString() === paymentId || 
@@ -1875,12 +1896,35 @@ router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
       );
       
       if (paymentIndex !== -1) {
-        // Update payment status
-        category.payments[paymentIndex].status = status;
+        oldCategoryId = category.categoryId;
         
-        // If marking as paid, set paidBy
-        if (status === 'paid' && paidBy) {
-          category.payments[paymentIndex].paidBy = paidBy;
+        // If category is changing, remove from old category
+        if (categoryId && categoryId !== category.categoryId.toString()) {
+          category.payments.splice(paymentIndex, 1);
+          
+          // Add to new category
+          const newCategory = budget.categories.find(c => c.categoryId.toString() === categoryId);
+          if (newCategory) {
+            newCategory.payments.push({
+              ...category.payments[paymentIndex],
+              name: name || category.payments[paymentIndex].name,
+              amount: amount !== undefined ? amount : category.payments[paymentIndex].amount,
+              scheduledDate: scheduledDate || category.payments[paymentIndex].scheduledDate,
+              notes: notes !== undefined ? notes : category.payments[paymentIndex].notes
+            });
+          }
+        } else {
+          // Update payment in place
+          if (name !== undefined) category.payments[paymentIndex].name = name;
+          if (amount !== undefined) category.payments[paymentIndex].amount = amount;
+          if (scheduledDate !== undefined) category.payments[paymentIndex].scheduledDate = scheduledDate;
+          if (notes !== undefined) category.payments[paymentIndex].notes = notes;
+          if (status !== undefined) category.payments[paymentIndex].status = status;
+          
+          // If marking as paid, set paidBy
+          if (status === 'paid' && paidBy) {
+            category.payments[paymentIndex].paidBy = paidBy;
+          }
         }
         
         paymentFound = true;
@@ -1904,6 +1948,53 @@ router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
   } catch (error) {
     console.error('Error updating payment status:', error);
     res.status(500).json({ error: 'Failed to update payment status' });
+  }
+});
+
+// Delete payment from weekly budget
+router.delete('/:budgetId/payment/:paymentId', auth, async (req, res) => {
+  try {
+    const { budgetId, paymentId } = req.params;
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: budgetId,
+      $or: [
+        { userId: req.user._id },
+        { householdId: { $in: req.user.households || [] } }
+      ]
+    });
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Find and remove the payment from categories
+    let paymentFound = false;
+    for (const category of budget.categories) {
+      const paymentIndex = category.payments.findIndex(p => 
+        p._id.toString() === paymentId || 
+        p.paymentScheduleId?.toString() === paymentId
+      );
+      
+      if (paymentIndex !== -1) {
+        category.payments.splice(paymentIndex, 1);
+        paymentFound = true;
+        break;
+      }
+    }
+    
+    if (!paymentFound) {
+      return res.status(404).json({ error: 'Payment not found in budget' });
+    }
+    
+    // Update remaining budget
+    budget.updateRemainingBudget();
+    await budget.save();
+    
+    res.json({ message: 'Payment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    res.status(500).json({ error: 'Failed to delete payment' });
   }
 });
 
