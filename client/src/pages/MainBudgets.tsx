@@ -289,26 +289,26 @@ const MainBudgets: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
         <Box>
           <Skeleton variant="text" height={60} width={300} />
           <Skeleton variant="rectangular" height={200} sx={{ mt: 2 }} />
           <Grid container spacing={3} mt={2}>
             {[1, 2, 3, 4].map(i => (
-              <Grid item xs={12} md={3} key={i}>
+              <Grid item xs={12} sm={6} md={3} key={i}>
                 <Skeleton variant="rectangular" height={150} />
               </Grid>
             ))}
           </Grid>
         </Box>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h4" fontWeight="bold">
             Budget Management
@@ -352,8 +352,8 @@ const MainBudgets: React.FC = () => {
       </Box>
 
       {/* Available Income Card */}
-      <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-        <CardContent>
+      <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', borderRadius: 2 }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Box>
               <Typography variant="h6" color="white">
@@ -451,10 +451,10 @@ const MainBudgets: React.FC = () => {
             </Button>
           </Box>
           {activeBudgets.map(budget => (
-            <Paper key={budget._id} sx={{ p: 3, mb: 3 }}>
-              <Grid container spacing={3}>
+            <Paper key={budget._id} sx={{ p: { xs: 2, sm: 2.5, md: 3 }, mb: 2.5, borderRadius: 2, boxShadow: 2 }}>
+              <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2} flexWrap="wrap" gap={2}>
                     <Box>
                       <Box display="flex" alignItems="center" gap={2} mb={1}>
                         <Typography variant="h5" fontWeight="bold">
@@ -910,7 +910,7 @@ const MainBudgets: React.FC = () => {
           setCreateDialogOpen(false);
         }}
       />
-    </Container>
+    </Box>
   );
 };
 

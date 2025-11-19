@@ -731,6 +731,7 @@ const Analytics: React.FC = () => {
                   </Avatar>
                 </ListItemAvatar>
                 <ListItemText
+                  disableTypography
                   primary={
                     <Box display="flex" justifyContent="space-between">
                       <Typography>{transaction.description || transaction.category}</Typography>
@@ -744,9 +745,9 @@ const Analytics: React.FC = () => {
                     </Box>
                   }
                   secondary={
-                    <Box display="flex" justifyContent="space-between">
-                      <Typography variant="body2">{transaction.category}</Typography>
-                      <Typography variant="body2">
+                    <Box display="flex" justifyContent="space-between" mt={0.5}>
+                      <Typography variant="body2" color="textSecondary">{transaction.category}</Typography>
+                      <Typography variant="body2" color="textSecondary">
                         {format(new Date(transaction.date), 'dd MMM yyyy', { locale: es })}
                       </Typography>
                     </Box>

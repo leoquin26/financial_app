@@ -125,7 +125,7 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`household-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>{children}</Box>}
     </div>
   );
 }
@@ -712,17 +712,19 @@ const HouseholdDetail: React.FC = () => {
             {household.createdBy && !household.members?.find((m: any) => 
               (m.user._id || m.user) === (household.createdBy._id || household.createdBy)
             ) && (
-              <Paper sx={{ mb: 2 }}>
-                <ListItem>
+              <Paper sx={{ mb: 2, p: 2, borderRadius: 2, boxShadow: 2 }}>
+                <ListItem sx={{ px: 0 }}>
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                    <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48 }}>
                       {household.createdBy.username?.[0]?.toUpperCase() || household.createdBy.name?.[0]?.toUpperCase() || 'O'}
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {household.createdBy.username || household.createdBy.name || household.createdBy.email}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Typography variant="body1" fontWeight="medium">
+                          {household.createdBy.username || household.createdBy.name || household.createdBy.email}
+                        </Typography>
                         <Chip
                           size="small"
                           icon={getRoleIcon('owner')}
@@ -755,17 +757,19 @@ const HouseholdDetail: React.FC = () => {
             )}
             
             {household.members?.map((member: any) => (
-              <Paper key={member.user._id || member.user} sx={{ mb: 2 }}>
-                <ListItem>
+              <Paper key={member.user._id || member.user} sx={{ mb: 2, p: 2, borderRadius: 2, boxShadow: 2 }}>
+                <ListItem sx={{ px: 0 }}>
                   <ListItemAvatar>
-                    <Avatar>
+                    <Avatar sx={{ width: 48, height: 48 }}>
                       {member.user.username?.[0]?.toUpperCase() || 'U'}
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {member.user.username || member.user.email}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Typography variant="body1" fontWeight="medium">
+                          {member.user.username || member.user.email}
+                        </Typography>
                         <Chip
                           size="small"
                           icon={getRoleIcon(member.role)}
@@ -787,21 +791,21 @@ const HouseholdDetail: React.FC = () => {
                         <Typography variant="body2" color="text.secondary">
                           {member.user.email}
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', gap: 1.5, mt: 1.5, flexWrap: 'wrap' }}>
                           {member.permissions?.canAddTransactions && (
-                            <Chip size="small" label="Agregar transacciones" variant="outlined" />
+                            <Chip size="small" label="Agregar transacciones" variant="outlined" sx={{ py: 0.5 }} />
                           )}
                           {member.permissions?.canEditTransactions && (
-                            <Chip size="small" label="Editar transacciones" variant="outlined" />
+                            <Chip size="small" label="Editar transacciones" variant="outlined" sx={{ py: 0.5 }} />
                           )}
                           {member.permissions?.canDeleteTransactions && (
-                            <Chip size="small" label="Eliminar transacciones" variant="outlined" />
+                            <Chip size="small" label="Eliminar transacciones" variant="outlined" sx={{ py: 0.5 }} />
                           )}
                           {member.permissions?.canManageBudgets && (
-                            <Chip size="small" label="Gestionar presupuestos" variant="outlined" />
+                            <Chip size="small" label="Gestionar presupuestos" variant="outlined" sx={{ py: 0.5 }} />
                           )}
                           {member.permissions?.canInviteMembers && (
-                            <Chip size="small" label="Invitar miembros" variant="outlined" />
+                            <Chip size="small" label="Invitar miembros" variant="outlined" sx={{ py: 0.5 }} />
                           )}
                         </Box>
                       </Box>

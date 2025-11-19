@@ -239,18 +239,20 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
   const remaining = actualTotalBudget - totalSpent;
 
   return (
-    <Card sx={{ mb: 3 }}>
-      <CardContent>
+    <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
         {/* Budget Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
-          <Box display="flex" alignItems="center" gap={2}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={4} flexWrap="wrap" gap={2}>
+          <Box display="flex" alignItems="center" gap={2.5}>
             {budget.userId && (
               <>
-                <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48 }}>
+                <Avatar sx={{ bgcolor: 'primary.main', width: { xs: 48, sm: 56 }, height: { xs: 48, sm: 56 }, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
                   {budget.userId?.name?.charAt(0).toUpperCase() || '?'}
                 </Avatar>
                 <Box>
-                  <Typography variant="h5">{budget.userId?.name || 'Unknown User'}'s Budget</Typography>
+                  <Typography variant="h5" fontWeight="bold" sx={{ mb: 0.5 }}>
+                    {budget.userId?.name || 'Unknown User'}'s Budget
+                  </Typography>
                   <Typography variant="body2" color="textSecondary">
                     {format(new Date(budget.weekStartDate), 'MMM d')} - {format(new Date(budget.weekEndDate), 'MMM d, yyyy')}
                   </Typography>
@@ -258,15 +260,15 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
               </>
             )}
           </Box>
-          <Typography variant="h4" color="primary">
+          <Typography variant="h4" fontWeight="bold" color="primary">
             ${budget.totalBudget.toFixed(2)}
           </Typography>
         </Box>
 
         {/* Budget Stats */}
-        <Box mb={3}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="body2" color="textSecondary">
+        <Box mb={4}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+            <Typography variant="body2" fontWeight="medium" color="textSecondary">
               Progress: ${totalSpent.toFixed(2)} / ${actualTotalBudget.toFixed(2)}
             </Typography>
             <Typography variant="body2" fontWeight="bold">
@@ -277,21 +279,22 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
             variant="determinate"
             value={Math.min(actualTotalBudget > 0 ? (totalSpent / actualTotalBudget) * 100 : 0, 100)}
             sx={{
-              height: 10,
-              borderRadius: 1,
+              height: 12,
+              borderRadius: 2,
               backgroundColor: 'action.hover',
               '& .MuiLinearProgress-bar': {
-                borderRadius: 1,
+                borderRadius: 2,
                 backgroundColor: totalSpent > actualTotalBudget ? 'error.main' : 'primary.main',
               },
             }}
           />
-          <Box display="flex" justifyContent="space-between" mt={1}>
-            <Chip label={`Scheduled: $${totalScheduled.toFixed(2)}`} size="small" />
+          <Box display="flex" justifyContent="space-between" mt={2} gap={2} flexWrap="wrap">
+            <Chip label={`Scheduled: $${totalScheduled.toFixed(2)}`} size="medium" variant="outlined" />
             <Chip 
               label={`Remaining: $${remaining.toFixed(2)}`} 
-              size="small" 
+              size="medium" 
               color={remaining < 0 ? 'error' : 'success'}
+              variant="outlined"
             />
           </Box>
         </Box>
@@ -314,11 +317,11 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
         </Box>
 
         {/* Categories */}
-        <Box>
+        <Box sx={{ mt: 3 }}>
           {(!budget.categories || budget.categories.length === 0) ? (
             <Alert 
               severity="info" 
-              sx={{ mt: 2 }}
+              sx={{ mt: 2, p: 2 }}
               action={
                 <Box display="flex" gap={1}>
                   <Button 
@@ -405,10 +408,14 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
                 expanded={isExpanded}
                 onChange={() => toggleCategory(categoryData._id)}
                 sx={{
-                  mb: 1,
+                  mb: 2,
                   '&:before': { display: 'none' },
-                  boxShadow: 1,
-                  '&.Mui-expanded': { margin: '0 0 8px 0' },
+                  boxShadow: 2,
+                  borderRadius: 2,
+                  '&.Mui-expanded': { 
+                    margin: '0 0 16px 0',
+                    borderRadius: 2,
+                  },
                 }}
               >
                 <AccordionSummary
@@ -417,8 +424,9 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
                       <ExpandMoreIcon />
                     </Badge>
                   }
+                  sx={{ px: { xs: 2, sm: 3 }, py: 1.5 }}
                 >
-                  <Box display="flex" alignItems="center" gap={2} flex={1}>
+                  <Box display="flex" alignItems="center" gap={2.5} flex={1}>
                     <Box
                       sx={{
                         width: 40,
@@ -450,7 +458,7 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
                   </Box>
                 </AccordionSummary>
 
-                <AccordionDetails>
+                <AccordionDetails sx={{ px: { xs: 2, sm: 3 }, pb: 3 }}>
                   <Box>
                     {/* Progress Bar */}
                     <Box mb={3}>

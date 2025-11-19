@@ -423,7 +423,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
       {/* Breadcrumbs */}
       {currentBudget?.parentBudgetId && (
         <Breadcrumbs 
@@ -520,7 +520,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
       </Box>
 
       {/* Budget Overview */}
-      <Grid container spacing={3} mb={4}>
+      <Grid container spacing={2} mb={3}>
         <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <Card>
             <CardContent>
@@ -799,7 +799,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
 
       {/* Show message if no categories selected */}
       {selectedCategories.size === 0 && (
-        <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.default' }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center', bgcolor: 'background.default', borderRadius: 2 }}>
           <Typography variant="body1" color="textSecondary" gutterBottom>
             No categories added yet
           </Typography>
@@ -823,12 +823,13 @@ const WeeklyBudgetSimplified: React.FC = () => {
           const hasPayments = categoryData && categoryData.payments.length > 0;
 
           return (
-            <Paper key={category._id} sx={{ mb: 2 }}>
+            <Paper key={category._id} sx={{ mb: 2, borderRadius: 2, boxShadow: 1 }}>
               <ListItem
                 button
                 onClick={() => toggleCategory(category._id)}
                 sx={{
-                  borderRadius: 1,
+                  p: { xs: 2, sm: 2.5 },
+                  borderRadius: 2,
                   '&:hover': {
                     backgroundColor: 'action.hover',
                   },
@@ -865,7 +866,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
               </ListItem>
 
               <Collapse in={isExpanded}>
-                <Box sx={{ p: 2, pt: 0 }}>
+                <Box sx={{ px: { xs: 2, sm: 2.5 }, pb: 2, pt: 0 }}>
                   {/* Existing Payments */}
                   {hasPayments && categoryData && (
                     <List dense sx={{ mb: 2 }}>
@@ -873,8 +874,9 @@ const WeeklyBudgetSimplified: React.FC = () => {
                         <Paper
                           key={payment._id}
                           sx={{
-                            p: 2,
-                            mb: 2,
+                            p: { xs: 1.5, sm: 2 },
+                            mb: 1.5,
+                            borderRadius: 1.5,
                             backgroundColor: 
                               payment.status === 'paid' ? 'success.soft' : 
                               payment.status === 'paying' ? 'info.soft' : 
@@ -1144,7 +1146,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 };
 

@@ -486,8 +486,8 @@ const PaymentScheduleComponent: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
         <Typography variant="h4" fontWeight="bold">
           Payment Schedule
         </Typography>
@@ -501,8 +501,8 @@ const PaymentScheduleComponent: React.FC = () => {
       </Box>
 
       {/* Weekly Summary */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} sm={3}>
+      <Grid container spacing={2} mb={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -519,7 +519,7 @@ const PaymentScheduleComponent: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -536,7 +536,7 @@ const PaymentScheduleComponent: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -553,7 +553,7 @@ const PaymentScheduleComponent: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -601,7 +601,7 @@ const PaymentScheduleComponent: React.FC = () => {
       ) : (
         <>
           {tabValue === 0 && (
-            <Paper sx={{ height: 600, p: 2 }}>
+            <Paper sx={{ height: 600, p: { xs: 2, sm: 2.5 }, borderRadius: 2, boxShadow: 2 }}>
               <Box mb={1}>
                 <Typography variant="caption" color="textSecondary">
                   Showing {paymentEvents.length} payments and {budgetEvents.length} weekly budget items
@@ -699,7 +699,7 @@ const PaymentScheduleComponent: React.FC = () => {
           )}
 
           {tabValue === 1 && (
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, index) => {
                 const dayDate = addDays(startOfWeek(selectedWeek), index === 6 ? 0 : index + 1);
                 const dayPayments = payments.filter((p: PaymentSchedule) => 
@@ -772,7 +772,7 @@ const PaymentScheduleComponent: React.FC = () => {
           )}
 
           {tabValue === 2 && (
-            <Grid container spacing={3}>
+            <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Card>
                   <CardContent>
@@ -1176,7 +1176,7 @@ const PaymentScheduleComponent: React.FC = () => {
           </Fade>
         )}
       </Popper>
-    </Container>
+    </Box>
   );
 };
 

@@ -279,12 +279,17 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
     ] : [];
 
     return (
-      <Box mb={2}>
-        <Card sx={{ border: isCurrentWeek ? '2px solid' : '1px solid', borderColor: isCurrentWeek ? 'primary.main' : 'divider' }}>
-          <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-            <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: 'primary.main' }}>
+      <Box mb={3}>
+        <Card sx={{ 
+          border: isCurrentWeek ? '2px solid' : '1px solid', 
+          borderColor: isCurrentWeek ? 'primary.main' : 'divider',
+          borderRadius: 2,
+          boxShadow: 2,
+        }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3} flexWrap="wrap" gap={2}>
+            <Box display="flex" alignItems="center" gap={2.5}>
+              <Avatar sx={{ bgcolor: 'primary.main', width: { xs: 48, sm: 56 }, height: { xs: 48, sm: 56 }, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
                 {(() => {
                   const userName = budget.userId?.name || 
                     (budget.userId?._id && userNameMap.get(budget.userId._id)) || 
@@ -294,7 +299,7 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
                 })()}
               </Avatar>
               <Box>
-                <Typography variant="h6">
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 0.5 }}>
                   {budget.userId?.name || 
                    (budget.userId?._id && userNameMap.get(budget.userId._id)) || 
                    (typeof budget.userId === 'string' && userNameMap.get(budget.userId)) || 
@@ -306,37 +311,57 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
               </Box>
             </Box>
             {isCurrentWeek && (
-              <Chip label="Current Week" color="primary" size="small" />
+              <Chip label="Current Week" color="primary" size="medium" sx={{ fontWeight: 'bold' }} />
             )}
           </Box>
 
-          <Grid container spacing={2} mb={2}>
-            <Grid item xs={6} md={3}>
-              <Typography variant="body2" color="textSecondary">Total Budget</Typography>
-              <Typography variant="h6">${budget.totalBudget.toFixed(2)}</Typography>
+          <Grid container spacing={3} mb={3}>
+            <Grid item xs={6} sm={3}>
+              <Box>
+                <Typography variant="body2" color="textSecondary" gutterBottom>
+                  Total Budget
+                </Typography>
+                <Typography variant="h6" fontWeight="bold">
+                  ${budget.totalBudget.toFixed(2)}
+                </Typography>
+              </Box>
             </Grid>
-            <Grid item xs={6} md={3}>
-              <Typography variant="body2" color="textSecondary">Allocated</Typography>
-              <Typography variant="h6">${stats.totalAllocated.toFixed(2)}</Typography>
+            <Grid item xs={6} sm={3}>
+              <Box>
+                <Typography variant="body2" color="textSecondary" gutterBottom>
+                  Allocated
+                </Typography>
+                <Typography variant="h6" fontWeight="bold">
+                  ${stats.totalAllocated.toFixed(2)}
+                </Typography>
+              </Box>
             </Grid>
-            <Grid item xs={6} md={3}>
-              <Typography variant="body2" color="textSecondary">Spent</Typography>
-              <Typography variant="h6" color="success.main">
-                ${stats.totalSpent.toFixed(2)}
-              </Typography>
+            <Grid item xs={6} sm={3}>
+              <Box>
+                <Typography variant="body2" color="textSecondary" gutterBottom>
+                  Spent
+                </Typography>
+                <Typography variant="h6" fontWeight="bold" color="success.main">
+                  ${stats.totalSpent.toFixed(2)}
+                </Typography>
+              </Box>
             </Grid>
-            <Grid item xs={6} md={3}>
-              <Typography variant="body2" color="textSecondary">Remaining</Typography>
-              <Typography variant="h6" color={stats.remaining < 0 ? 'error.main' : 'inherit'}>
-                ${stats.remaining.toFixed(2)}
-              </Typography>
+            <Grid item xs={6} sm={3}>
+              <Box>
+                <Typography variant="body2" color="textSecondary" gutterBottom>
+                  Remaining
+                </Typography>
+                <Typography variant="h6" fontWeight="bold" color={stats.remaining < 0 ? 'error.main' : 'success.main'}>
+                  ${stats.remaining.toFixed(2)}
+                </Typography>
+              </Box>
             </Grid>
           </Grid>
 
-          <Box mb={2}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-              <Typography variant="body2">Budget Progress</Typography>
-              <Typography variant="caption" color="textSecondary">
+          <Box mb={3}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+              <Typography variant="body2" fontWeight="medium">Budget Progress</Typography>
+              <Typography variant="body2" fontWeight="bold" color="textSecondary">
                 {stats.percentageUsed.toFixed(0)}%
               </Typography>
             </Box>
@@ -344,11 +369,11 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
               variant="determinate"
               value={Math.min(stats.percentageUsed, 100)}
               sx={{
-                height: 8,
-                borderRadius: 1,
+                height: 10,
+                borderRadius: 2,
                 backgroundColor: 'action.hover',
                 '& .MuiLinearProgress-bar': {
-                  borderRadius: 1,
+                  borderRadius: 2,
                   backgroundColor: stats.percentageUsed > 100 ? 'error.main' : 'primary.main',
                 },
               }}
@@ -357,19 +382,20 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
 
           {/* Who Paid */}
           {stats.paidByUsers && stats.paidByUsers.length > 0 && (
-            <Box mb={2}>
-              <Typography variant="subtitle2" gutterBottom>
+            <Box mb={3}>
+              <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
                 Paid By
               </Typography>
-              <Box display="flex" gap={1} flexWrap="wrap">
+              <Box display="flex" gap={1.5} flexWrap="wrap">
                 {stats.paidByUsers.map((user, index) => (
                   <Chip
                     key={index}
                     icon={<PersonIcon />}
                     label={`${user.name}: $${user.amount.toFixed(2)}`}
-                    size="small"
+                    size="medium"
                     color="success"
                     variant="outlined"
+                    sx={{ py: 0.5 }}
                   />
                 ))}
               </Box>
@@ -378,11 +404,11 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
 
           {/* Top Categories */}
           {budget.categories && budget.categories.length > 0 && (
-            <Box>
-              <Typography variant="subtitle2" gutterBottom>
+            <Box mb={3}>
+              <Typography variant="subtitle2" fontWeight="medium" gutterBottom>
                 Top Categories
               </Typography>
-              <Box display="flex" gap={1} flexWrap="wrap">
+              <Box display="flex" gap={1.5} flexWrap="wrap">
                 {budget.categories
                   .filter(cat => cat.categoryId && cat.categoryId._id)
                   .slice(0, 3)
@@ -391,12 +417,13 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
                     <Chip
                       key={cat.categoryId._id}
                       label={`${cat.categoryId.name || 'Unknown'}: $${cat.allocation.toFixed(0)}`}
-                      size="small"
+                      size="medium"
                       sx={{
                         backgroundColor: (cat.categoryId.color || '#666') + '20',
                         color: cat.categoryId.color || '#666',
                         borderColor: cat.categoryId.color || '#666',
                         border: '1px solid',
+                        py: 0.5,
                       }}
                     />
                   ))}
@@ -405,11 +432,13 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
           )}
           
           {/* Toggle Button */}
-          <Box display="flex" justifyContent="center" mt={2} gap={1}>
+          <Box display="flex" justifyContent="center" mt={3} gap={2} flexWrap="wrap">
             <Button
               onClick={() => toggleBudget(budget._id)}
               endIcon={isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              size="small"
+              size="medium"
+              variant="outlined"
+              sx={{ minWidth: 140 }}
             >
               {isExpanded ? 'Hide Details' : 'View Details'}
             </Button>
@@ -431,9 +460,10 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
                   toast.error('Failed to fix payment data');
                 }
               }}
-              size="small"
+              size="medium"
               variant="outlined"
               color="warning"
+              sx={{ minWidth: 120 }}
             >
               Fix Names
             </Button>
@@ -443,7 +473,7 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
       
       {/* Expanded Details */}
       <Collapse in={isExpanded}>
-        <Box mt={-2}>
+        <Box mt={2}>
           <HouseholdBudgetDetail 
             budget={budget} 
             householdMembers={householdMembers}
@@ -456,11 +486,11 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
   };
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
       {currentBudgets.length > 0 && (
-        <Box mb={4}>
-          <Typography variant="h6" gutterBottom>
-            <BudgetIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+        <Box mb={5}>
+          <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>
+            <BudgetIcon sx={{ verticalAlign: 'middle', mr: 1.5 }} />
             Current Week Budgets
           </Typography>
           {currentBudgets.map(budget => (
@@ -471,7 +501,7 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
 
       {pastBudgets.length > 0 && (
         <Box>
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h5" fontWeight="bold" gutterBottom sx={{ mb: 3 }}>
             Past Budgets
           </Typography>
           {pastBudgets.slice(0, 3).map(budget => (
