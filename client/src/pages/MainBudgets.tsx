@@ -194,9 +194,10 @@ const MainBudgets: React.FC = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
   
-  // Force recalculation when returning from weekly budget pages
+  // Force recalculation when returning from other pages
   React.useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+    queryClient.invalidateQueries({ queryKey: ['availableIncome'] });
   }, [location.pathname, queryClient]);
 
   // Fetch main budgets
@@ -370,7 +371,19 @@ const MainBudgets: React.FC = () => {
                 </Typography>
               </Box>
             </Box>
-            <BudgetIcon sx={{ fontSize: 60, color: 'rgba(255,255,255,0.3)' }} />
+            <Box display="flex" alignItems="center" gap={2}>
+              <BudgetIcon sx={{ fontSize: 60, color: 'rgba(255,255,255,0.3)' }} />
+              <IconButton
+                sx={{ color: 'rgba(255,255,255,0.8)' }}
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ['availableIncome'] });
+                  toast.info('Refreshing available income...');
+                }}
+                title="Refresh available income"
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Box>
           </Box>
         </CardContent>
       </Card>

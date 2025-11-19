@@ -412,6 +412,15 @@ router.get('/available-income', authMiddleware, async (req, res) => {
         
         const totalIncome = incomeStats[0]?.total || 0;
         
+        // Debug: Get all transactions to see what we have
+        const allTransactions = await Transaction.find({ 
+            userId: new mongoose.Types.ObjectId(userId) 
+        }).select('type amount date description');
+        
+        console.log(`[Available Income Debug] Found ${allTransactions.length} total transactions`);
+        console.log(`[Available Income Debug] Income transactions:`, allTransactions.filter(t => t.type === 'income'));
+        console.log(`[Available Income Debug] Transaction types:`, allTransactions.map(t => t.type));
+        
         // Get total allocated to budgets
         const MainBudget = require('../models/MainBudget');
         const mainBudgets = await MainBudget.find({ userId });
@@ -432,10 +441,46 @@ router.get('/available-income', authMiddleware, async (req, res) => {
             totalAllocated += budget.totalBudget || 0;
         }
         
-        // Calculate available
-        const available = totalIncome - totalAllocated;
+        // Get total expenses (transactions + paid budget payments)
+        const expenseStats = await Transaction.aggregate([
+            {
+                $match: {
+                    userId: new mongoose.Types.ObjectId(userId),
+                    type: 'expense'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: '$amount' }
+                }
+            }
+        ]);
         
-        console.log(`[Available Income] User ${userId}: Income: ${totalIncome}, Allocated: ${totalAllocated}, Available: ${available}`);
+        const totalExpenses = expenseStats[0]?.total || 0;
+        
+        // Get paid budget payments
+        const paidBudgetPayments = await getPaymentsAsTransactions(
+            userId,
+            new Date(0), // From beginning of time
+            new Date() // To now
+        );
+        const totalBudgetExpenses = paidBudgetPayments.reduce((sum, p) => sum + p.amount, 0);
+        
+        // Calculate available (Income - Expenses - Allocated to future budgets)
+        // This gives a more accurate picture of what's truly available
+        const totalSpent = totalExpenses + totalBudgetExpenses;
+        const netIncome = totalIncome - totalSpent;
+        const available = netIncome - totalAllocated;
+        
+        console.log(`[Available Income] User ${userId}:`);
+        console.log(`  - Total Income: ${totalIncome}`);
+        console.log(`  - Total Expenses: ${totalExpenses}`);
+        console.log(`  - Budget Expenses: ${totalBudgetExpenses}`);
+        console.log(`  - Total Spent: ${totalSpent}`);
+        console.log(`  - Net Income: ${netIncome}`);
+        console.log(`  - Allocated to Budgets: ${totalAllocated}`);
+        console.log(`  - Available: ${available}`);
         
         res.json({
             total: totalIncome,
