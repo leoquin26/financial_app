@@ -189,12 +189,11 @@ const InlinePaymentCreator: React.FC<InlinePaymentCreatorProps> = ({
               label="Due Date"
               value={scheduledDate}
               onChange={setScheduledDate}
-              minDate={weekStart}
-              maxDate={weekEnd}
               slotProps={{
                 textField: {
                   size: 'small',
                   sx: { flex: 1 },
+                  helperText: 'You can schedule for any date',
                 },
               }}
             />
