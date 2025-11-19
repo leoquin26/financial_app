@@ -193,6 +193,8 @@ const MainBudgets: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'draft'>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [budgetToDelete, setBudgetToDelete] = useState<MainBudget | null>(null);
   
   // Force recalculation when returning from other pages
   React.useEffect(() => {
@@ -244,8 +246,42 @@ const MainBudgets: React.FC = () => {
     }
   };
 
+  // Delete budget mutation
+  const deleteBudgetMutation = useMutation({
+    mutationFn: async (budgetId: string) => {
+      const response = await axios.delete(`/api/main-budgets/${budgetId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Budget deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['availableIncome'] });
+      setDeleteDialogOpen(false);
+      setBudgetToDelete(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to delete budget');
+    },
+  });
+
   // Get current/active budgets
   const activeBudgets = budgets.filter(b => b.isCurrentPeriod && b.status === 'active');
+  
+  // Get past, future, and other budgets
+  const now = new Date();
+  const pastBudgets = budgets.filter(b => 
+    new Date(b.period.endDate) < now && 
+    !activeBudgets.includes(b)
+  );
+  const futureBudgets = budgets.filter(b => 
+    new Date(b.period.startDate) > now && 
+    !activeBudgets.includes(b)
+  );
+  const otherBudgets = budgets.filter(b => 
+    !activeBudgets.includes(b) && 
+    !pastBudgets.includes(b) && 
+    !futureBudgets.includes(b)
+  );
 
   // Auto-recalculate budgets where total doesn't match sum of weekly allocations
   React.useEffect(() => {
@@ -317,7 +353,7 @@ const MainBudgets: React.FC = () => {
             Manage your budgets across different time periods
           </Typography>
         </Box>
-        <Box display="flex" gap={2}>
+        <Box display="flex" gap={2} flexWrap="wrap">
           {activeBudgets.length > 0 && (
             <Button
               variant="contained"
@@ -341,6 +377,41 @@ const MainBudgets: React.FC = () => {
             </Button>
           )}
           <Button
+            variant="outlined"
+            color="primary"
+            startIcon={<TrendingUpIcon />}
+            onClick={async () => {
+              // Quick create budget for next month with same amount as this month
+              const nextMonth = new Date();
+              nextMonth.setMonth(nextMonth.getMonth() + 1);
+              
+              try {
+                const lastBudget = activeBudgets[0]?.totalBudget || 3000;
+                const response = await axios.post('/api/main-budgets', {
+                  name: format(nextMonth, 'MMMM yyyy') + ' Budget',
+                  description: 'Monthly budget',
+                  periodType: 'monthly',
+                  totalBudget: lastBudget,
+                  categories: [],
+                  settings: {
+                    autoCreateWeekly: true,
+                    rolloverUnspent: false,
+                    shareWithHousehold: false,
+                    notifyOnWeekStart: true,
+                    notifyOnOverspend: true,
+                  }
+                });
+                toast.success('Budget created! Click any week to start planning.');
+                queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+              } catch (error: any) {
+                toast.error(error.response?.data?.error || 'Failed to create budget');
+              }
+            }}
+            size="large"
+          >
+            Quick Start Next Month
+          </Button>
+          <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => setCreateDialogOpen(true)}
@@ -352,7 +423,13 @@ const MainBudgets: React.FC = () => {
       </Box>
 
       {/* Available Income Card */}
-      <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', borderRadius: 2 }}>
+      <Card sx={{ 
+        mb: 3, 
+        background: availableIncome.available < 0 
+          ? 'linear-gradient(135deg, #f5576c 0%, #f093fb 100%)' 
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        borderRadius: 2 
+      }}>
         <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Box>
@@ -360,14 +437,22 @@ const MainBudgets: React.FC = () => {
                 Available to Budget
               </Typography>
               <Typography variant="h3" color="white" fontWeight="bold">
-                ${availableIncome.available.toLocaleString()}
+                {availableIncome.available < 0 ? '-' : ''}${Math.abs(availableIncome.available).toLocaleString()}
               </Typography>
+              {availableIncome.available < 0 && (
+                <Typography variant="body2" color="rgba(255,255,255,0.9)" fontWeight="bold">
+                  Over budget!
+                </Typography>
+              )}
               <Box mt={1}>
                 <Typography variant="body2" color="rgba(255,255,255,0.8)">
                   Total Income: ${availableIncome.total.toLocaleString()}
                 </Typography>
                 <Typography variant="body2" color="rgba(255,255,255,0.8)">
-                  Already Budgeted: ${availableIncome.allocated.toLocaleString()}
+                  Total Spent: ${(availableIncome.total - availableIncome.available - availableIncome.allocated).toFixed(0).toLocaleString()}
+                </Typography>
+                <Typography variant="body2" color="rgba(255,255,255,0.8)">
+                  Allocated to Budgets: ${availableIncome.allocated.toLocaleString()}
                 </Typography>
               </Box>
             </Box>
@@ -556,6 +641,16 @@ const MainBudgets: React.FC = () => {
                         <EditIcon />
                       </IconButton>
                       <IconButton 
+                        onClick={() => {
+                          setBudgetToDelete(budget);
+                          setDeleteDialogOpen(true);
+                        }}
+                        color="error"
+                        title="Delete Budget"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                      <IconButton 
                         onClick={async () => {
                           try {
                             const response = await axios.post(`/api/main-budgets/${budget._id}/cleanup-future-weeks`);
@@ -643,7 +738,25 @@ const MainBudgets: React.FC = () => {
                             boxShadow: 3,
                           }
                         }}
-                        onClick={() => navigate(`/budgets/${budget._id}`)}
+                        onClick={async () => {
+                          // Navigate to current week
+                          const now = new Date();
+                          const currentWeek = budget.weeklyBudgets.find(w => {
+                            const start = new Date(w.startDate);
+                            const end = new Date(w.endDate);
+                            return now >= start && now <= end;
+                          });
+                          
+                          if (currentWeek) {
+                            await navigateToWeeklyBudget(budget._id, currentWeek.weekNumber);
+                          } else {
+                            // Fallback to first week
+                            const firstWeek = budget.weeklyBudgets[0];
+                            if (firstWeek) {
+                              await navigateToWeeklyBudget(budget._id, firstWeek.weekNumber);
+                            }
+                          }
+                        }}
                       >
                         <CardContent>
                           <Grid container spacing={3} alignItems="center">
@@ -677,9 +790,25 @@ const MainBudgets: React.FC = () => {
                               <Button 
                                 variant="contained" 
                                 endIcon={<ArrowForwardIcon />}
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   e.stopPropagation();
-                                  navigate(`/budgets/${budget._id}`);
+                                  // Navigate to current week in monthly view
+                                  const now = new Date();
+                                  const currentWeek = budget.weeklyBudgets.find(w => {
+                                    const start = new Date(w.startDate);
+                                    const end = new Date(w.endDate);
+                                    return now >= start && now <= end;
+                                  });
+                                  
+                                  if (currentWeek) {
+                                    await navigateToWeeklyBudget(budget._id, currentWeek.weekNumber);
+                                  } else {
+                                    // Fallback to first week
+                                    const firstWeek = budget.weeklyBudgets[0];
+                                    if (firstWeek) {
+                                      await navigateToWeeklyBudget(budget._id, firstWeek.weekNumber);
+                                    }
+                                  }
                                 }}
                               >
                                 Manage Budget
@@ -797,107 +926,310 @@ const MainBudgets: React.FC = () => {
         </Grid>
       ) : (
         <Box>
-          <Typography variant="h6" fontWeight="bold" mb={2}>
-            All Budgets
-          </Typography>
-          <Grid container spacing={3}>
-            {budgets.filter(b => !activeBudgets.includes(b)).map(budget => (
-              <Grid item xs={12} md={6} lg={4} key={budget._id}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                      <Box>
-                        <Typography variant="h6" fontWeight="bold">
-                          {budget.name}
-                        </Typography>
-                        <Box display="flex" gap={1} mt={1}>
-                          <Chip 
-                            label={budget.period.type} 
-                            size="small" 
-                            variant="outlined"
-                          />
-                          <Chip 
-                            label={budget.status} 
-                            size="small" 
-                            color={
-                              budget.status === 'active' ? 'primary' : 
-                              budget.status === 'completed' ? 'success' : 'default'
-                            }
-                          />
+          {/* Future Budgets */}
+          {futureBudgets.length > 0 && (
+            <Box mb={4}>
+              <Typography variant="h6" fontWeight="bold" mb={2}>
+                Upcoming Budgets
+              </Typography>
+              <Grid container spacing={2}>
+                {futureBudgets.map(budget => (
+                  <Grid item xs={12} md={6} lg={4} key={budget._id}>
+                    <Card sx={{ 
+                      borderRadius: 2, 
+                      boxShadow: 1,
+                      borderStyle: 'dashed',
+                      borderColor: 'primary.main',
+                      borderWidth: 2,
+                      '&:hover': { boxShadow: 3 },
+                      transition: 'box-shadow 0.3s'
+                    }}>
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                          <Box flex={1}>
+                            <Typography variant="h6" fontWeight="bold">
+                              {budget.name}
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                              {format(new Date(budget.period.startDate), 'MMM d')} - 
+                              {format(new Date(budget.period.endDate), 'MMM d, yyyy')}
+                            </Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Chip 
+                              label="upcoming" 
+                              size="small"
+                              color="info"
+                              icon={<ScheduleIcon />}
+                            />
+                            <IconButton 
+                              size="small"
+                              onClick={() => {
+                                setBudgetToDelete(budget);
+                                setDeleteDialogOpen(true);
+                              }}
+                              color="error"
+                              title="Delete Budget"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
                         </Box>
-                      </Box>
-                    </Box>
-
-                    <Box mb={2}>
-                      <Typography variant="caption" color="textSecondary">
-                        {format(new Date(budget.period.startDate), 'MMM d, yyyy')} - 
-                        {format(new Date(budget.period.endDate), 'MMM d, yyyy')}
-                      </Typography>
-                    </Box>
-
-                    <Box display="flex" justifyContent="space-between" mb={2}>
-                      <Box>
-                        <Typography variant="caption" color="textSecondary">
-                          Budget
-                        </Typography>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography variant="h6">
+                        
+                        <Box mb={2}>
+                          <Typography variant="caption" color="textSecondary">Budget</Typography>
+                          <Typography variant="h5" fontWeight="bold">
                             ${budget.totalBudget.toLocaleString()}
                           </Typography>
-                          {(() => {
-                            const weeklySum = budget.weeklyBudgets.reduce((sum, week) => sum + (week.allocatedAmount || 0), 0);
-                            return weeklySum > 0; // Always show button if there are weekly allocations
-                          })() && (
-                            <Tooltip title={`Recalculate total from weekly budgets ($${budget.weeklyBudgets.reduce((sum, week) => sum + (week.allocatedAmount || 0), 0).toLocaleString()})`}>
-                              <IconButton
-                                size="small"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    await axios.post(`/api/main-budgets/${budget._id}/recalculate-total`);
-                                    queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
-                                    toast.success('Total budget updated');
-                                  } catch (error) {
-                                    toast.error('Failed to recalculate total');
-                                  }
-                                }}
-                                color="primary"
-                              >
-                                <RefreshIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
+                          <Typography variant="body2" color="textSecondary" mt={1}>
+                            Starts in {Math.abs(budget.daysRemaining)} days
+                          </Typography>
                         </Box>
-                      </Box>
-                      <Box textAlign="right">
-                        <Typography variant="caption" color="textSecondary">
-                          Spent
-                        </Typography>
-                        <Typography variant="h6" color="primary">
-                          ${budget.analytics.totalSpent.toLocaleString()}
-                        </Typography>
-                      </Box>
-                    </Box>
 
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={budget.progressPercentage} 
-                      sx={{ mb: 2 }}
-                    />
-
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      onClick={() => navigate(`/budgets/${budget._id}`)}
-                      endIcon={<ArrowForwardIcon />}
-                    >
-                      View Details
-                    </Button>
-                  </CardContent>
-                </Card>
+                        <Button 
+                          fullWidth 
+                          variant="contained"
+                          endIcon={<ArrowForwardIcon />}
+                          onClick={async () => {
+                            // Navigate to the first week of this budget
+                            const firstWeek = budget.weeklyBudgets[0];
+                            if (firstWeek) {
+                              await navigateToWeeklyBudget(budget._id, firstWeek.weekNumber);
+                            } else {
+                              toast.error('No weeks found in this budget');
+                            }
+                          }}
+                          sx={{ borderRadius: 2 }}
+                        >
+                          Setup Budget
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
               </Grid>
-            ))}
-          </Grid>
+            </Box>
+          )}
+
+          {/* Past Budgets */}
+          {pastBudgets.length > 0 && (
+            <Box mb={4}>
+              <Typography variant="h6" fontWeight="bold" mb={2}>
+                Past Budgets
+              </Typography>
+              <Grid container spacing={2}>
+                {pastBudgets.map(budget => (
+                  <Grid item xs={12} md={6} lg={4} key={budget._id}>
+                    <Card sx={{ 
+                      borderRadius: 2, 
+                      boxShadow: 1,
+                      backgroundColor: 'grey.50',
+                      '&:hover': { boxShadow: 3 },
+                      transition: 'box-shadow 0.3s'
+                    }}>
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                          <Box flex={1}>
+                            <Typography variant="h6" fontWeight="bold">
+                              {budget.name}
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                              {format(new Date(budget.period.startDate), 'MMM d')} - 
+                              {format(new Date(budget.period.endDate), 'MMM d, yyyy')}
+                            </Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Chip 
+                              label="completed" 
+                              size="small"
+                              color="default"
+                              icon={<CheckIcon />}
+                            />
+                            <IconButton 
+                              size="small"
+                              onClick={() => {
+                                setBudgetToDelete(budget);
+                                setDeleteDialogOpen(true);
+                              }}
+                              color="error"
+                              title="Delete Budget"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                        
+                        <Box display="flex" justifyContent="space-between" mb={2}>
+                          <Box>
+                            <Typography variant="caption" color="textSecondary">Budget</Typography>
+                            <Typography variant="body1" fontWeight="medium">
+                              ${budget.totalBudget.toLocaleString()}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="textSecondary">Spent</Typography>
+                            <Typography variant="body1" fontWeight="medium" color="primary">
+                              ${budget.analytics.totalSpent.toLocaleString()}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="textSecondary">Result</Typography>
+                            <Typography 
+                              variant="body1" 
+                              fontWeight="medium" 
+                              color={budget.analytics.totalRemaining >= 0 ? 'success.main' : 'error.main'}
+                            >
+                              {budget.analytics.totalRemaining >= 0 ? '+' : ''} 
+                              ${budget.analytics.totalRemaining.toLocaleString()}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        <LinearProgress 
+                          variant="determinate" 
+                          value={Math.min(budget.progressPercentage, 100)}
+                          sx={{ 
+                            height: 6, 
+                            borderRadius: 3,
+                            mb: 2,
+                            backgroundColor: 'action.hover',
+                            '& .MuiLinearProgress-bar': {
+                              backgroundColor: budget.progressPercentage > 100 ? 'error.main' : 'success.main',
+                            }
+                          }}
+                        />
+
+                        <Button 
+                          fullWidth 
+                          variant="outlined"
+                          endIcon={<ArrowForwardIcon />}
+                          onClick={async () => {
+                            // For past budgets, navigate to the last week
+                            const lastWeek = budget.weeklyBudgets[budget.weeklyBudgets.length - 1];
+                            if (lastWeek) {
+                              await navigateToWeeklyBudget(budget._id, lastWeek.weekNumber);
+                            } else {
+                              toast.error('No weeks found in this budget');
+                            }
+                          }}
+                          sx={{ borderRadius: 2 }}
+                        >
+                          View Details
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
+
+          {/* All Other Budgets */}
+          {otherBudgets.length > 0 && (
+            <Box>
+              <Typography variant="h6" fontWeight="bold" mb={2}>
+                All Budgets
+              </Typography>
+              <Grid container spacing={2}>
+                {otherBudgets.map(budget => (
+                  <Grid item xs={12} md={6} lg={4} key={budget._id}>
+                    <Card sx={{ 
+                      borderRadius: 2, 
+                      boxShadow: 1,
+                      '&:hover': { boxShadow: 3 },
+                      transition: 'box-shadow 0.3s'
+                    }}>
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                          <Box flex={1}>
+                            <Typography variant="h6" fontWeight="bold">
+                              {budget.name}
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                              {budget.period.type} • {format(new Date(budget.period.startDate), 'MMM yyyy')}
+                            </Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Chip 
+                              label={budget.status} 
+                              size="small"
+                              color={
+                                budget.status === 'active' ? 'success' : 
+                                budget.status === 'completed' ? 'default' :
+                                budget.status === 'draft' ? 'warning' : 'error'
+                              }
+                              variant="outlined"
+                            />
+                            <IconButton 
+                              size="small"
+                              onClick={() => {
+                                setBudgetToDelete(budget);
+                                setDeleteDialogOpen(true);
+                              }}
+                              color="error"
+                              title="Delete Budget"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                        
+                        <Box display="flex" justifyContent="space-between" mb={2}>
+                          <Box>
+                            <Typography variant="caption" color="textSecondary">Budget</Typography>
+                            <Typography variant="h6">
+                              ${budget.totalBudget.toLocaleString()}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Typography variant="caption" color="textSecondary">Spent</Typography>
+                            <Typography variant="h6" color="primary">
+                              ${budget.analytics.totalSpent.toLocaleString()}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        <LinearProgress 
+                          variant="determinate" 
+                          value={Math.min(budget.progressPercentage, 100)} 
+                          sx={{ mb: 2, height: 6, borderRadius: 3 }}
+                        />
+
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          onClick={async () => {
+                            // Navigate to the first or current week
+                            const now = new Date();
+                            let targetWeek = budget.weeklyBudgets.find(w => {
+                              const start = new Date(w.startDate);
+                              const end = new Date(w.endDate);
+                              return now >= start && now <= end;
+                            });
+                            
+                            // If no current week, use first week
+                            if (!targetWeek) {
+                              targetWeek = budget.weeklyBudgets[0];
+                            }
+                            
+                            if (targetWeek) {
+                              await navigateToWeeklyBudget(budget._id, targetWeek.weekNumber);
+                            } else {
+                              toast.error('No weeks found in this budget');
+                            }
+                          }}
+                          endIcon={<ArrowForwardIcon />}
+                          sx={{ borderRadius: 2 }}
+                        >
+                          View Details
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
         </Box>
       )}
 
@@ -910,6 +1242,81 @@ const MainBudgets: React.FC = () => {
           setCreateDialogOpen(false);
         }}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => {
+          setDeleteDialogOpen(false);
+          setBudgetToDelete(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Delete Budget</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            This action cannot be undone. All data associated with this budget will be permanently deleted.
+          </Alert>
+          {budgetToDelete && (
+            <Box>
+              <Typography variant="body1" mb={2}>
+                Are you sure you want to delete the following budget?
+              </Typography>
+              <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+                <Typography variant="h6" fontWeight="bold">
+                  {budgetToDelete.name}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {format(new Date(budgetToDelete.period.startDate), 'MMM d, yyyy')} - 
+                  {format(new Date(budgetToDelete.period.endDate), 'MMM d, yyyy')}
+                </Typography>
+                <Box mt={1}>
+                  <Typography variant="body2">
+                    <strong>Total Budget:</strong> ${budgetToDelete.totalBudget.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Amount Spent:</strong> ${budgetToDelete.analytics.totalSpent.toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2">
+                    <strong>Weekly Budgets:</strong> {budgetToDelete.weeklyBudgets.length} weeks
+                  </Typography>
+                </Box>
+              </Paper>
+              <Alert severity="info" sx={{ mt: 2 }}>
+                This will also delete:
+                <ul style={{ margin: '8px 0' }}>
+                  <li>All weekly budgets within this period</li>
+                  <li>All categories and payment schedules</li>
+                  <li>All tracking data and analytics</li>
+                </ul>
+              </Alert>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setDeleteDialogOpen(false);
+              setBudgetToDelete(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => {
+              if (budgetToDelete) {
+                deleteBudgetMutation.mutate(budgetToDelete._id);
+              }
+            }}
+            color="error"
+            variant="contained"
+            disabled={deleteBudgetMutation.isPending}
+          >
+            {deleteBudgetMutation.isPending ? 'Deleting...' : 'Delete Budget'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

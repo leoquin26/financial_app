@@ -122,7 +122,20 @@ const CreateMainBudgetDialog: React.FC<CreateMainBudgetDialogProps> = ({
   // Create budget mutation
   const createBudgetMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const response = await axios.post('/api/main-budgets', data);
+      // Convert string values to numbers for the API
+      const payload = {
+        ...data,
+        totalBudget: parseFloat(data.totalBudget) || 0,
+        categories: data.categories.map(cat => ({
+          ...cat,
+          defaultAllocation: parseFloat(cat.defaultAllocation.toString()) || 0
+        })),
+        settings: {
+          ...data.settings,
+          weeklyBudgetAmount: data.settings.weeklyBudgetAmount ? parseFloat(data.settings.weeklyBudgetAmount) : undefined
+        }
+      };
+      const response = await axios.post('/api/main-budgets', payload);
       return response.data;
     },
     onSuccess: () => {

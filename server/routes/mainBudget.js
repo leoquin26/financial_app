@@ -675,20 +675,38 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const budget = await MainBudget.findOne({
       _id: req.params.id,
-      userId: req.user._id
+      $or: [
+        { userId: req.user._id },
+        { householdId: { $in: req.user.households || [] } }
+      ]
     });
     
     if (!budget) {
       return res.status(404).json({ error: 'Budget not found' });
     }
     
-    if (budget.status !== 'draft') {
-      return res.status(400).json({ error: 'Can only delete draft budgets' });
+    // Allow deletion of any budget status - users should be able to clean up their data
+    // The frontend will show appropriate warnings
+    
+    // Delete all related weekly budgets
+    const WeeklyBudget = require('../models/WeeklyBudget');
+    const weeklyBudgetIds = budget.weeklyBudgets
+      .filter(w => w.budgetId)
+      .map(w => w.budgetId);
+    
+    if (weeklyBudgetIds.length > 0) {
+      await WeeklyBudget.deleteMany({
+        _id: { $in: weeklyBudgetIds }
+      });
     }
     
+    // Delete the main budget
     await budget.deleteOne();
     
-    res.json({ message: 'Budget deleted successfully' });
+    res.json({ 
+      message: 'Budget deleted successfully',
+      deletedWeeklyBudgets: weeklyBudgetIds.length
+    });
   } catch (error) {
     console.error('Error deleting budget:', error);
     res.status(500).json({ error: 'Failed to delete budget' });
