@@ -110,6 +110,15 @@ const CreateMainBudgetDialog: React.FC<CreateMainBudgetDialogProps> = ({
     },
   });
 
+  // Fetch available income
+  const { data: availableIncome = { total: 0, allocated: 0, available: 0 } } = useQuery({
+    queryKey: ['availableIncome'],
+    queryFn: async () => {
+      const response = await axios.get('/api/dashboard/available-income');
+      return response.data;
+    },
+  });
+
   // Create budget mutation
   const createBudgetMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -341,6 +350,17 @@ const CreateMainBudgetDialog: React.FC<CreateMainBudgetDialogProps> = ({
       case 1:
         return (
           <Box>
+            {availableIncome.available > 0 && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  You have <strong>${availableIncome.available.toLocaleString()}</strong> available to budget
+                </Typography>
+                <Typography variant="caption" display="block">
+                  (${availableIncome.total.toLocaleString()} income - ${availableIncome.allocated.toLocaleString()} already budgeted)
+                </Typography>
+              </Alert>
+            )}
+            
             <TextField
               fullWidth
               label="Total Budget Amount"
@@ -357,6 +377,7 @@ const CreateMainBudgetDialog: React.FC<CreateMainBudgetDialogProps> = ({
                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
               }}
               placeholder="0.00"
+              helperText={availableIncome.available > 0 ? `Maximum available: $${availableIncome.available.toLocaleString()}` : ''}
             />
 
             {formData.totalBudget && (

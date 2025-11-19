@@ -214,6 +214,17 @@ const MainBudgets: React.FC = () => {
     refetchOnWindowFocus: true, // Refetch when window regains focus
   });
 
+  // Fetch available income (total income - total allocated to budgets)
+  const { data: availableIncome = { total: 0, allocated: 0, available: 0 } } = useQuery({
+    queryKey: ['availableIncome'],
+    queryFn: async () => {
+      const response = await axios.get('/api/dashboard/available-income');
+      return response.data;
+    },
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  });
+
   // Navigate to weekly budget
   const navigateToWeeklyBudget = async (mainBudgetId: string, weekNumber: number) => {
     try {
@@ -338,6 +349,31 @@ const MainBudgets: React.FC = () => {
           </Button>
         </Box>
       </Box>
+
+      {/* Available Income Card */}
+      <Card sx={{ mb: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+        <CardContent>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box>
+              <Typography variant="h6" color="white">
+                Available to Budget
+              </Typography>
+              <Typography variant="h3" color="white" fontWeight="bold">
+                ${availableIncome.available.toLocaleString()}
+              </Typography>
+              <Box mt={1}>
+                <Typography variant="body2" color="rgba(255,255,255,0.8)">
+                  Total Income: ${availableIncome.total.toLocaleString()}
+                </Typography>
+                <Typography variant="body2" color="rgba(255,255,255,0.8)">
+                  Already Budgeted: ${availableIncome.allocated.toLocaleString()}
+                </Typography>
+              </Box>
+            </Box>
+            <BudgetIcon sx={{ fontSize: 60, color: 'rgba(255,255,255,0.3)' }} />
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Box display="flex" gap={2} mb={3} flexWrap="wrap">

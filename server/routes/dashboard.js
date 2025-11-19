@@ -4,6 +4,7 @@ const { authMiddleware } = require('../middleware/auth');
 const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget');
 const Category = require('../models/Category');
+const { getPaymentsAsTransactions, getAllBudgetData, aggregateAllFinancialData } = require('./analytics-adapter');
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
         const startOfPrevMonth = new Date(requestedYear, requestedMonth - 2, 1);
         const endOfPrevMonth = new Date(requestedYear, requestedMonth - 1, 0, 23, 59, 59);
         
-        // Get current month transactions
+        // Get current month transactions AND budget payments
         const currentMonthStats = await Transaction.aggregate([
             {
                 $match: {
@@ -42,6 +43,11 @@ router.get('/summary', authMiddleware, async (req, res) => {
                 }
             }
         ]);
+        
+        // Get payments from budget system for current month
+        const budgetPayments = await getPaymentsAsTransactions(req.userId, startOfMonth, endOfMonth);
+        const budgetExpenses = budgetPayments.reduce((sum, payment) => sum + payment.amount, 0);
+        console.log(`[Dashboard] Found ${budgetPayments.length} budget payments totaling ${budgetExpenses}`);
         
         // Get previous month transactions for comparison
         const prevMonthStats = await Transaction.aggregate([
@@ -62,11 +68,15 @@ router.get('/summary', authMiddleware, async (req, res) => {
             }
         ]);
         
-        // Extract totals
+        // Get payments from budget system for previous month
+        const prevBudgetPayments = await getPaymentsAsTransactions(req.userId, startOfPrevMonth, endOfPrevMonth);
+        const prevBudgetExpenses = prevBudgetPayments.reduce((sum, payment) => sum + payment.amount, 0);
+        
+        // Extract totals (combine transactions + budget payments)
         const currentIncome = currentMonthStats.find(s => s._id === 'income')?.total || 0;
-        const currentExpenses = currentMonthStats.find(s => s._id === 'expense')?.total || 0;
+        const currentExpenses = (currentMonthStats.find(s => s._id === 'expense')?.total || 0) + budgetExpenses;
         const prevIncome = prevMonthStats.find(s => s._id === 'income')?.total || 0;
-        const prevExpenses = prevMonthStats.find(s => s._id === 'expense')?.total || 0;
+        const prevExpenses = (prevMonthStats.find(s => s._id === 'expense')?.total || 0) + prevBudgetExpenses;
         
         // Calculate changes
         const incomeChange = currentIncome - prevIncome;
@@ -74,7 +84,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
         const incomeChangePercent = prevIncome > 0 ? ((incomeChange / prevIncome) * 100) : 0;
         const expenseChangePercent = prevExpenses > 0 ? ((expenseChange / prevExpenses) * 100) : 0;
         
-        // Get expenses by category
+        // Get expenses by category (combine transactions + budget payments)
         const expensesByCategory = await Transaction.aggregate([
             {
                 $match: {
@@ -118,6 +128,44 @@ router.get('/summary', authMiddleware, async (req, res) => {
                 $sort: { total: -1 }
             }
         ]);
+        
+        // Add budget payments to expenses by category
+        const categoryExpenseMap = new Map();
+        
+        // Add transaction expenses
+        for (const cat of expensesByCategory) {
+            categoryExpenseMap.set(cat.id.toString(), {
+                id: cat.id,
+                name: cat.name,
+                color: cat.color,
+                icon: cat.icon,
+                total: cat.total,
+                count: cat.count
+            });
+        }
+        
+        // Add budget payment expenses
+        for (const payment of budgetPayments) {
+            if (payment.categoryId) {
+                const catId = payment.categoryId._id.toString();
+                if (categoryExpenseMap.has(catId)) {
+                    categoryExpenseMap.get(catId).total += payment.amount;
+                    categoryExpenseMap.get(catId).count += 1;
+                } else {
+                    categoryExpenseMap.set(catId, {
+                        id: payment.categoryId._id,
+                        name: payment.categoryId.name,
+                        color: payment.categoryId.color,
+                        icon: payment.categoryId.icon,
+                        total: payment.amount,
+                        count: 1
+                    });
+                }
+            }
+        }
+        
+        // Convert map back to array and sort
+        const finalExpensesByCategory = Array.from(categoryExpenseMap.values()).sort((a, b) => b.total - a.total);
         
         // Get income by category
         const incomeByCategory = await Transaction.aggregate([
@@ -184,6 +232,31 @@ router.get('/summary', authMiddleware, async (req, res) => {
             color: t.categoryId?.color || '#808080',
             person: '' // Removed person field
         }));
+        
+        // Get recent budget payments (last 30 days for recent activity)
+        const recentBudgetPayments = await getPaymentsAsTransactions(
+            req.userId,
+            new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+            new Date()
+        );
+        
+        // Format and combine recent activities
+        const formattedBudgetPayments = recentBudgetPayments.map(p => ({
+            id: p._id,
+            amount: p.amount,
+            category_name: p.categoryId?.name || 'Unknown',
+            description: p.description,
+            date: p.date,
+            type: 'expense',
+            icon: p.categoryId?.icon || '💳',
+            color: p.categoryId?.color || '#808080',
+            person: ''
+        }));
+        
+        // Combine and sort all recent activities
+        const allRecentTransactions = [...formattedRecentTransactions, ...formattedBudgetPayments]
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 10);
         
         // Get monthly trend (last 6 months)
         const monthlyTrend = [];
@@ -289,10 +362,10 @@ router.get('/summary', authMiddleware, async (req, res) => {
                 expenseChange,
                 expenseChangePercent
             },
-            expensesByCategory,
+            expensesByCategory: finalExpensesByCategory,
             incomeByCategory,
             expensesByPerson,
-            recentTransactions: formattedRecentTransactions,
+            recentTransactions: allRecentTransactions,
             monthlyTrend,
             budgets: budgetsWithProgress,
             goals: [] // TODO: Implement goals/savings feature
@@ -313,6 +386,65 @@ router.get('/', authMiddleware, async (req, res) => {
     } catch (error) {
         console.error('Get dashboard error:', error);
         res.status(500).json({ error: 'Failed to fetch dashboard data' });
+    }
+});
+
+// Get available income (income - budgeted amount)
+router.get('/available-income', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.userId;
+        
+        // Get total income from all time
+        const incomeStats = await Transaction.aggregate([
+            {
+                $match: {
+                    userId: new mongoose.Types.ObjectId(userId),
+                    type: 'income'
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: '$amount' }
+                }
+            }
+        ]);
+        
+        const totalIncome = incomeStats[0]?.total || 0;
+        
+        // Get total allocated to budgets
+        const MainBudget = require('../models/MainBudget');
+        const mainBudgets = await MainBudget.find({ userId });
+        
+        let totalAllocated = 0;
+        for (const budget of mainBudgets) {
+            totalAllocated += budget.totalBudget || 0;
+        }
+        
+        // Also include standalone weekly budgets not linked to main budgets
+        const WeeklyBudget = require('../models/WeeklyBudget');
+        const standaloneWeeklyBudgets = await WeeklyBudget.find({ 
+            userId,
+            parentBudgetId: { $exists: false }
+        });
+        
+        for (const budget of standaloneWeeklyBudgets) {
+            totalAllocated += budget.totalBudget || 0;
+        }
+        
+        // Calculate available
+        const available = totalIncome - totalAllocated;
+        
+        console.log(`[Available Income] User ${userId}: Income: ${totalIncome}, Allocated: ${totalAllocated}, Available: ${available}`);
+        
+        res.json({
+            total: totalIncome,
+            allocated: totalAllocated,
+            available: available
+        });
+    } catch (error) {
+        console.error('Get available income error:', error);
+        res.status(500).json({ error: 'Failed to calculate available income' });
     }
 });
 
