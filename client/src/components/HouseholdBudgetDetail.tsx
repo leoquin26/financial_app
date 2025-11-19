@@ -141,14 +141,18 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
       .filter(p => p.status === 'paid')
       .reduce((sum, p) => sum + p.amount, 0);
     const scheduled = category.payments.reduce((sum, p) => sum + p.amount, 0);
-    const percentageUsed = allocated > 0 ? (spent / allocated) * 100 : 0;
+    
+    // For categories without allocation, use scheduled amount as the total
+    const categoryTotal = allocated > 0 ? allocated : scheduled;
+    const percentageUsed = categoryTotal > 0 ? (spent / categoryTotal) * 100 : 0;
     
     return {
       allocated,
       spent,
       scheduled,
-      remaining: allocated - spent,
+      remaining: categoryTotal - spent,
       percentageUsed,
+      categoryTotal,
     };
   };
 
@@ -229,6 +233,10 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
   const totalScheduled = budget.categories?.reduce((sum, cat) => 
     sum + cat.payments.reduce((s, p) => s + p.amount, 0), 0
   ) || 0;
+  
+  // Use the actual total budget for calculations
+  const actualTotalBudget = budget.totalBudget || totalAllocated || 0;
+  const remaining = actualTotalBudget - totalSpent;
 
   return (
     <Card sx={{ mb: 3 }}>
@@ -259,31 +267,31 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
         <Box mb={3}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
             <Typography variant="body2" color="textSecondary">
-              Progress: ${totalSpent.toFixed(2)} / ${totalAllocated.toFixed(2)}
+              Progress: ${totalSpent.toFixed(2)} / ${actualTotalBudget.toFixed(2)}
             </Typography>
             <Typography variant="body2" fontWeight="bold">
-              {((totalSpent / totalAllocated) * 100).toFixed(0)}%
+              {actualTotalBudget > 0 ? ((totalSpent / actualTotalBudget) * 100).toFixed(0) : 0}%
             </Typography>
           </Box>
           <LinearProgress
             variant="determinate"
-            value={Math.min((totalSpent / totalAllocated) * 100, 100)}
+            value={Math.min(actualTotalBudget > 0 ? (totalSpent / actualTotalBudget) * 100 : 0, 100)}
             sx={{
               height: 10,
               borderRadius: 1,
               backgroundColor: 'action.hover',
               '& .MuiLinearProgress-bar': {
                 borderRadius: 1,
-                backgroundColor: (totalSpent / totalAllocated) > 1 ? 'error.main' : 'primary.main',
+                backgroundColor: totalSpent > actualTotalBudget ? 'error.main' : 'primary.main',
               },
             }}
           />
           <Box display="flex" justifyContent="space-between" mt={1}>
             <Chip label={`Scheduled: $${totalScheduled.toFixed(2)}`} size="small" />
             <Chip 
-              label={`Remaining: $${(totalAllocated - totalSpent).toFixed(2)}`} 
+              label={`Remaining: $${remaining.toFixed(2)}`} 
               size="small" 
-              color={totalAllocated - totalSpent < 0 ? 'error' : 'success'}
+              color={remaining < 0 ? 'error' : 'success'}
             />
           </Box>
         </Box>
@@ -430,7 +438,7 @@ const HouseholdBudgetDetail: React.FC<HouseholdBudgetDetailProps> = ({ budget, h
                       </Typography>
                       <Box display="flex" alignItems="center" gap={2}>
                         <Typography variant="body2" color="textSecondary">
-                          ${stats.spent.toFixed(2)} / ${stats.allocated.toFixed(2)}
+                          ${stats.spent.toFixed(2)} / ${stats.categoryTotal.toFixed(2)}
                         </Typography>
                         <Chip
                           label={`${stats.percentageUsed.toFixed(0)}%`}

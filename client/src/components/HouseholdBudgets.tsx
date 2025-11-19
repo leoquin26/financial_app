@@ -232,8 +232,9 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
       });
     }
 
-    const percentageUsed = totalAllocated > 0 ? (totalSpent / totalAllocated) * 100 : 0;
-    const remaining = totalAllocated - totalSpent;
+    const actualBudgetTotal = budget.totalBudget || totalAllocated || 0;
+    const percentageUsed = actualBudgetTotal > 0 ? (totalSpent / actualBudgetTotal) * 100 : 0;
+    const remaining = actualBudgetTotal - totalSpent;
 
     return {
       totalAllocated,
@@ -241,6 +242,7 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
       totalPaid,
       percentageUsed,
       remaining,
+      actualBudgetTotal,
       paidByUsers: Array.from(paidByUsers.values()),
     };
   };
@@ -283,10 +285,21 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
           <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
             <Box display="flex" alignItems="center" gap={2}>
               <Avatar sx={{ bgcolor: 'primary.main' }}>
-                {budget.userId?.name?.charAt(0).toUpperCase() || '?'}
+                {(() => {
+                  const userName = budget.userId?.name || 
+                    (budget.userId?._id && userNameMap.get(budget.userId._id)) || 
+                    (typeof budget.userId === 'string' && userNameMap.get(budget.userId)) || 
+                    'Unknown User';
+                  return userName.charAt(0).toUpperCase();
+                })()}
               </Avatar>
               <Box>
-                <Typography variant="h6">{budget.userId?.name || 'Unknown User'}</Typography>
+                <Typography variant="h6">
+                  {budget.userId?.name || 
+                   (budget.userId?._id && userNameMap.get(budget.userId._id)) || 
+                   (typeof budget.userId === 'string' && userNameMap.get(budget.userId)) || 
+                   'Unknown User'}
+                </Typography>
                 <Typography variant="body2" color="textSecondary">
                   {format(new Date(budget.weekStartDate), 'MMM d')} - {format(new Date(budget.weekEndDate), 'MMM d, yyyy')}
                 </Typography>
