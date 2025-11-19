@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { axiosInstance as axios, API_BASE_URL } from '../config/api';
 
 interface User {
-  id: number;
+  id: string; // Changed from number to string to match MongoDB _id
   username: string;
   email: string;
   fullName: string;

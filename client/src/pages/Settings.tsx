@@ -15,6 +15,7 @@ import {
   InputLabel,
   Divider,
   Alert,
+  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -140,6 +141,7 @@ const Settings: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [resetDataDialogOpen, setResetDataDialogOpen] = useState(false);
 
   // Form for profile
   const { control: profileControl, handleSubmit: handleProfileSubmit, reset: resetProfile, formState: { errors: profileErrors } } = useForm<UserProfile>();
@@ -267,6 +269,22 @@ const Settings: React.FC = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Error al eliminar cuenta');
+    },
+  });
+
+  const resetDataMutation = useMutation({
+    mutationFn: async (password: string) => {
+      const response = await axios.post('/api/auth/reset-data', { confirmPassword: password });
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Todos los datos han sido eliminados exitosamente');
+      setResetDataDialogOpen(false);
+      // Refresh all queries to show empty state
+      queryClient.invalidateQueries();
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Error al limpiar los datos');
     },
   });
 
@@ -902,6 +920,29 @@ const Settings: React.FC = () => {
               </Grid>
               
               <Grid item xs={12}>
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <DeleteIcon sx={{ mr: 2, color: 'error.main' }} />
+                      <Typography variant="h6" color="error">Limpiar Todos los Datos</Typography>
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Elimina permanentemente todos tus datos (pagos, transacciones, presupuestos) y comienza de nuevo. 
+                      Esta acción no puede deshacerse.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="error"
+                      fullWidth
+                      onClick={() => setResetDataDialogOpen(true)}
+                    >
+                      Limpiar Todos los Datos
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+              
+              <Grid item xs={12}>
                 <Alert severity="info">
                   <Typography variant="body2">
                     Tus datos están seguros y respaldados automáticamente cada 24 horas.
@@ -1127,6 +1168,72 @@ const Settings: React.FC = () => {
             disabled
           >
             Eliminar Cuenta
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reset Data Dialog */}
+      <Dialog
+        open={resetDataDialogOpen}
+        onClose={() => setResetDataDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle color="error">
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <WarningIcon sx={{ mr: 1 }} />
+            Limpiar Todos los Datos
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              <strong>¡Advertencia!</strong> Esta acción eliminará permanentemente:
+            </Typography>
+            <ul style={{ marginTop: 8, marginBottom: 0 }}>
+              <li>Todos los pagos y calendarios de pago</li>
+              <li>Todas las transacciones</li>
+              <li>Todos los presupuestos (semanales y principales)</li>
+              <li>Todas las notificaciones</li>
+              <li>Datos compartidos en hogares</li>
+            </ul>
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Esta acción <strong>NO</strong> puede deshacerse.
+            </Typography>
+          </Alert>
+          
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            const password = formData.get('password') as string;
+            resetDataMutation.mutate(password);
+          }}>
+            <TextField
+              name="password"
+              label="Ingresa tu contraseña para confirmar"
+              type="password"
+              fullWidth
+              margin="normal"
+              required
+              autoComplete="current-password"
+            />
+          </form>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetDataDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              const form = document.querySelector('form');
+              form?.requestSubmit();
+            }}
+            disabled={resetDataMutation.isPending}
+            startIcon={resetDataMutation.isPending ? <CircularProgress size={16} /> : <DeleteIcon />}
+          >
+            {resetDataMutation.isPending ? 'Limpiando...' : 'Limpiar Todos los Datos'}
           </Button>
         </DialogActions>
       </Dialog>

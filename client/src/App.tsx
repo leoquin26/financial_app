@@ -7,6 +7,8 @@ import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Pages
 import Login from './pages/Login';
@@ -19,6 +21,12 @@ import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Households from './pages/Households';
 import HouseholdDetail from './pages/HouseholdDetail';
+import PaymentSchedule from './pages/PaymentSchedule';
+import WeeklyBudget from './pages/WeeklyBudget';
+import WeeklyBudgetEnhanced from './pages/WeeklyBudgetEnhanced';
+import WeeklyBudgetSimplified from './pages/WeeklyBudgetSimplified';
+import WeeklyBudgetDashboard from './pages/WeeklyBudgetDashboard';
+import MainBudgets from './pages/MainBudgets';
 
 // Components
 import Layout from './components/Layout';
@@ -158,11 +166,17 @@ function App() {
                     <Route index element={<Navigate to="/dashboard" replace />} />
                     <Route path="dashboard" element={<Dashboard />} />
                     <Route path="transactions" element={<Transactions />} />
-                    <Route path="budgets" element={<Budgets />} />
                     <Route path="categories" element={<Categories />} />
                     <Route path="analytics" element={<Analytics />} />
                     <Route path="households" element={<Households />} />
                 <Route path="households/:id" element={<HouseholdDetail />} />
+                    <Route path="payments" element={<PaymentSchedule />} />
+                    <Route path="budgets" element={<MainBudgets />} />
+                    <Route path="budgets/:id" element={<MainBudgets />} />
+                    <Route path="budgets/:id/analytics" element={<Analytics />} />
+                    <Route path="budgets/week/:weekId" element={<WeeklyBudgetSimplified />} />
+                    <Route path="weekly-budget" element={<Navigate to="/budgets" replace />} />
+                    <Route path="weekly-budget/:id" element={<WeeklyBudgetSimplified />} />
                     <Route path="settings" element={<Settings />} />
                   </Route>
                 </Routes>
@@ -190,6 +204,7 @@ function App() {
                   },
                 }}
               />
+              <ToastContainer position="top-right" />
             </SocketProvider>
           </AuthProvider>
         </LocalizationProvider>

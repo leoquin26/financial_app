@@ -33,6 +33,9 @@ import {
   Person as PersonIcon,
   Notifications as NotificationsIcon,
   Home as HomeIcon,
+  CalendarMonth as CalendarIcon,
+  AccountBalanceWallet as WalletIcon,
+  ViewWeek as ViewWeekIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
@@ -43,6 +46,7 @@ const drawerWidth = 240;
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Transacciones', icon: <ReceiptIcon />, path: '/transactions' },
+    { text: 'Pagos', icon: <CalendarIcon />, path: '/payments' },
     { text: 'Presupuestos', icon: <BudgetIcon />, path: '/budgets' },
     { text: 'Categorías', icon: <CategoryIcon />, path: '/categories' },
     { text: 'Análisis', icon: <AnalyticsIcon />, path: '/analytics' },

@@ -107,6 +107,7 @@ import toast from 'react-hot-toast';
 import { axiosInstance as axios } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
+import HouseholdBudgets from '../components/HouseholdBudgets';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -390,12 +391,15 @@ const HouseholdDetail: React.FC = () => {
     return analytics.monthlyTrend;
   };
 
-  const currentUserRole = household?.members?.find(
+  // Check if current user is the owner
+  const isOwner = household?.createdBy?._id === user?.id || household?.createdBy === user?.id;
+  
+  const currentUserRole = isOwner ? 'owner' : household?.members?.find(
     (m: any) => m.user._id === user?.id || m.user === user?.id
   )?.role;
 
   const canManageMembers = ['owner', 'admin'].includes(currentUserRole);
-  const canEditSettings = currentUserRole === 'owner';
+  const canEditSettings = ['owner', 'admin'].includes(currentUserRole);
   const canAddTransactions = ['owner', 'admin', 'member'].includes(currentUserRole);
 
   if (householdLoading) {
@@ -704,6 +708,52 @@ const HouseholdDetail: React.FC = () => {
         {/* Members Tab */}
         <TabPanel value={tabValue} index={1}>
           <List>
+            {/* Show the owner first if not in members list */}
+            {household.createdBy && !household.members?.find((m: any) => 
+              (m.user._id || m.user) === (household.createdBy._id || household.createdBy)
+            ) && (
+              <Paper sx={{ mb: 2 }}>
+                <ListItem>
+                  <ListItemAvatar>
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      {household.createdBy.username?.[0]?.toUpperCase() || household.createdBy.name?.[0]?.toUpperCase() || 'O'}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {household.createdBy.username || household.createdBy.name || household.createdBy.email}
+                        <Chip
+                          size="small"
+                          icon={getRoleIcon('owner')}
+                          label="owner"
+                          color="primary"
+                        />
+                        {(household.createdBy._id === user?.id || household.createdBy === user?.id) && (
+                          <Chip 
+                            size="small" 
+                            label="You" 
+                            color="info" 
+                            variant="outlined" 
+                          />
+                        )}
+                      </Box>
+                    }
+                    secondary={
+                      <Box>
+                        <Typography variant="body2" color="text.secondary">
+                          {household.createdBy.email}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Creator of this household
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </ListItem>
+              </Paper>
+            )}
+            
             {household.members?.map((member: any) => (
               <Paper key={member.user._id || member.user} sx={{ mb: 2 }}>
                 <ListItem>
@@ -722,6 +772,14 @@ const HouseholdDetail: React.FC = () => {
                           label={member.role}
                           color={getRoleColor(member.role) as any}
                         />
+                        {(member.user._id === user?.id || member.user === user?.id) && (
+                          <Chip 
+                            size="small" 
+                            label="You" 
+                            color="info" 
+                            variant="outlined" 
+                          />
+                        )}
                       </Box>
                     }
                     secondary={
@@ -859,69 +917,16 @@ const HouseholdDetail: React.FC = () => {
 
         {/* Budgets Tab */}
         <TabPanel value={tabValue} index={3}>
-          <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="h6">Presupuestos del Hogar</Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setBudgetDialogOpen(true)}
-            >
-              Nuevo Presupuesto
-            </Button>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h5" gutterBottom>
+              Weekly Budgets Shared with Household
+            </Typography>
+            <Typography variant="body2" color="textSecondary" gutterBottom>
+              View and track weekly budgets shared by household members
+            </Typography>
           </Box>
-          <Grid container spacing={2}>
-            {budgets?.map((budget: any) => (
-              <Grid item xs={12} md={6} key={budget._id}>
-                <Card>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                      <Typography variant="h6">
-                        {budget.category?.name}
-                      </Typography>
-                      <Chip
-                        size="small"
-                        label={budget.period}
-                        color="primary"
-                      />
-                    </Box>
-                    <Box sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">
-                          Gastado
-                        </Typography>
-                        <Typography variant="body2">
-                          S/. {budget.spent?.toFixed(2) || '0.00'} / S/. {budget.amount.toFixed(2)}
-                        </Typography>
-                      </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={Math.min((budget.spent / budget.amount) * 100, 100)}
-                        color={
-                          (budget.spent / budget.amount) > 0.9
-                            ? 'error'
-                            : (budget.spent / budget.amount) > 0.7
-                            ? 'warning'
-                            : 'success'
-                        }
-                        sx={{ mt: 1 }}
-                      />
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Restante
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color={budget.amount - budget.spent < 0 ? 'error' : 'success.main'}
-                      >
-                        S/. {(budget.amount - budget.spent).toFixed(2)}
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+          
+          <HouseholdBudgets householdId={id!} />
         </TabPanel>
 
         {/* Analytics Tab */}

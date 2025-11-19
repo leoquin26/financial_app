@@ -23,12 +23,22 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Also configure default axios
+// Also configure default axios with interceptor
 axios.defaults.baseURL = API_BASE_URL;
-const token = localStorage.getItem('token');
-if (token) {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-}
+
+// Add interceptor to default axios too
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 export { axiosInstance };
 export default axios;

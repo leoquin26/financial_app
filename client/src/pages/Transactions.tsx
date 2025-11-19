@@ -31,6 +31,8 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -46,9 +48,13 @@ import {
   CalendarToday,
   Category,
   AttachMoney,
+  AttachMoney as MoneyIcon,
   Description,
   Receipt,
   Refresh as RefreshIcon,
+  Payment as PaymentIcon,
+  Label as LabelIcon,
+  Repeat as RepeatIcon,
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -59,38 +65,44 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSocket } from '../contexts/SocketContext';
 import { axiosInstance as axios } from '../config/api';
+import { formatCurrency, getCurrencySymbol, CURRENCIES } from '../utils/currencies';
 
 interface Transaction {
-  id: number;
+  _id: string;
+  id?: number; // Keep for backwards compatibility
   amount: number;
-  category_id: number;
-  category_name: string;
+  currency?: string;
+  categoryId: any; // Can be string or populated category object
+  category_id?: string; // For backwards compatibility
+  category_name?: string;
   description: string;
   date: string;
   type: 'income' | 'expense';
-  payment_method?: string;
-  location?: string;
+  paymentMethod?: string;
+  payment_method?: string; // For backwards compatibility
   tags?: string[];
-  person?: string;
-  is_recurring: boolean;
-  recurring_period?: string;
-  icon: string;
-  color: string;
-  created_at: string;
-  updated_at: string;
+  isRecurring?: boolean;
+  is_recurring?: boolean; // For backwards compatibility
+  recurringPeriod?: string;
+  recurring_period?: string; // For backwards compatibility
+  icon?: string;
+  color?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Category {
-  id: number;
+  _id: string;
   name: string;
-  type: 'income' | 'expense';
   color: string;
   icon: string;
+  userId?: string | null;
 }
 
 interface TransactionForm {
   amount: number;
-  category_id: number;
+  currency?: string;
+  category_id: string;
   description: string;
   date: Date;
   type: 'income' | 'expense';
@@ -109,12 +121,12 @@ const Transactions: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
-  const [filterCategory, setFilterCategory] = useState<number | ''>('');
+  const [filterCategory, setFilterCategory] = useState<string>('');
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null,
   });
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -124,7 +136,8 @@ const Transactions: React.FC = () => {
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TransactionForm>({
     defaultValues: {
       amount: 0,
-      category_id: 0,
+      currency: '',
+      category_id: '',
       description: '',
       date: new Date(),
       type: 'expense',
@@ -137,6 +150,7 @@ const Transactions: React.FC = () => {
 
   const watchType = watch('type');
   const watchRecurring = watch('is_recurring');
+  const watchCurrency = watch('currency');
 
   // Queries
   const { data: transactions, isLoading: loadingTransactions, refetch } = useQuery({
@@ -159,7 +173,16 @@ const Transactions: React.FC = () => {
     queryKey: ['categories'],
     queryFn: async () => {
       const response = await axios.get('/api/categories');
-      return response.data.categories;
+      return response.data; // Backend returns array directly
+    },
+  });
+
+  // Get user data for default currency
+  const { data: userData } = useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      const response = await axios.get('/api/auth/me');
+      return response.data;
     },
   });
 
@@ -167,10 +190,16 @@ const Transactions: React.FC = () => {
   const createMutation = useMutation({
     mutationFn: async (data: TransactionForm) => {
       const payload = {
-        ...data,
-        date: format(data.date, 'yyyy-MM-dd'),
-        tags: data.tags ? data.tags.split(',').map(t => t.trim()) : [],
+        type: data.type,
+        amount: parseFloat(data.amount.toString()), // Ensure amount is a number
+        currency: data.currency,
         categoryId: data.category_id,
+        description: data.description,
+        date: format(data.date, 'yyyy-MM-dd'),
+        paymentMethod: data.payment_method,
+        tags: data.tags ? data.tags.split(',').map(t => t.trim()) : [],
+        isRecurring: data.is_recurring,
+        recurringPeriod: data.recurring_period,
       };
       const response = await axios.post('/api/transactions', payload);
       return response.data;
@@ -187,12 +216,18 @@ const Transactions: React.FC = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: TransactionForm }) => {
+    mutationFn: async ({ id, data }: { id: string; data: TransactionForm }) => {
       const payload = {
-        ...data,
-        date: format(data.date, 'yyyy-MM-dd'),
-        tags: data.tags ? data.tags.split(',').map(t => t.trim()) : [],
+        type: data.type,
+        amount: parseFloat(data.amount.toString()), // Ensure amount is a number
+        currency: data.currency,
         categoryId: data.category_id,
+        description: data.description,
+        date: format(data.date, 'yyyy-MM-dd'),
+        paymentMethod: data.payment_method,
+        tags: data.tags ? data.tags.split(',').map(t => t.trim()) : [],
+        isRecurring: data.is_recurring,
+        recurringPeriod: data.recurring_period,
       };
       const response = await axios.put(`/api/transactions/${id}`, payload);
       return response.data;
@@ -209,7 +244,7 @@ const Transactions: React.FC = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       await axios.delete(`/api/transactions/${id}`);
     },
     onSuccess: () => {
@@ -223,7 +258,7 @@ const Transactions: React.FC = () => {
   });
 
   const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: number[]) => {
+    mutationFn: async (ids: string[]) => {
       await axios.post('/api/transactions/bulk-delete', { ids });
     },
     onSuccess: () => {
@@ -248,32 +283,64 @@ const Transactions: React.FC = () => {
     socket.on('transaction-created', handleTransactionUpdate);
     socket.on('transaction-updated', handleTransactionUpdate);
     socket.on('transaction-deleted', handleTransactionUpdate);
+    socket.on('transactions-deleted', handleTransactionUpdate);
 
     return () => {
       socket.off('transaction-created', handleTransactionUpdate);
       socket.off('transaction-updated', handleTransactionUpdate);
       socket.off('transaction-deleted', handleTransactionUpdate);
+      socket.off('transactions-deleted', handleTransactionUpdate);
     };
   }, [socket, refetch]);
 
   // Handlers
   const handleOpenDialog = (transaction?: Transaction) => {
     if (transaction) {
+      console.log('Editing transaction full data:', transaction);
+      console.log('Payment Method:', transaction.paymentMethod, 'or', transaction.payment_method);
+      console.log('Tags:', transaction.tags);
+      console.log('Is Recurring:', transaction.isRecurring, 'or', transaction.is_recurring);
+      console.log('Recurring Period:', transaction.recurringPeriod, 'or', transaction.recurring_period);
+      
       setEditingTransaction(transaction);
-      reset({
+      
+      // Map backend field names to frontend form field names
+      const categoryId = (transaction as any).categoryId?._id || (transaction as any).categoryId || transaction.category_id;
+      
+      // Check all possible field names (camelCase from backend, snake_case for compatibility)
+      const formData = {
         amount: transaction.amount,
-        category_id: transaction.category_id,
+        currency: transaction.currency || '',
+        category_id: categoryId || '',
         description: transaction.description || '',
         date: parseISO(transaction.date),
         type: transaction.type,
-        payment_method: transaction.payment_method || '',
-        tags: transaction.tags?.join(', ') || '',
-        is_recurring: transaction.is_recurring,
-        recurring_period: transaction.recurring_period || 'monthly',
-      });
+        payment_method: (transaction as any).paymentMethod || transaction.payment_method || '',
+        tags: Array.isArray(transaction.tags) ? transaction.tags.join(', ') : 
+              Array.isArray((transaction as any).tags) ? (transaction as any).tags.join(', ') : '',
+        is_recurring: (transaction as any).isRecurring !== undefined ? (transaction as any).isRecurring : 
+                     transaction.isRecurring !== undefined ? transaction.isRecurring :
+                     transaction.is_recurring || false,
+        recurring_period: (transaction as any).recurringPeriod || transaction.recurringPeriod || 
+                         transaction.recurring_period || 'monthly',
+      };
+      
+      console.log('Form data being set:', formData);
+      reset(formData);
     } else {
       setEditingTransaction(null);
-      reset();
+      reset({
+        amount: 0,
+        currency: userData?.currency || 'PEN',
+        category_id: '',
+        description: '',
+        date: new Date(),
+        type: 'expense',
+        payment_method: '',
+        tags: '',
+        is_recurring: false,
+        recurring_period: 'monthly',
+      });
     }
     setOpenDialog(true);
   };
@@ -286,13 +353,13 @@ const Transactions: React.FC = () => {
 
   const onSubmit = (data: TransactionForm) => {
     if (editingTransaction) {
-      updateMutation.mutate({ id: editingTransaction.id, data });
+      updateMutation.mutate({ id: editingTransaction._id, data });
     } else {
       createMutation.mutate(data);
     }
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: string) => {
     if (window.confirm('¿Estás seguro de eliminar esta transacción?')) {
       deleteMutation.mutate(id);
     }
@@ -306,16 +373,16 @@ const Transactions: React.FC = () => {
 
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked && transactions?.transactions) {
-      const newSelected = transactions.transactions.map((t: Transaction) => t.id);
+      const newSelected = transactions.transactions.map((t: Transaction) => t._id);
       setSelected(newSelected);
     } else {
       setSelected([]);
     }
   };
 
-  const handleSelectOne = (id: number) => {
+  const handleSelectOne = (id: string) => {
     const selectedIndex = selected.indexOf(id);
-    let newSelected: number[] = [];
+    let newSelected: string[] = [];
 
     if (selectedIndex === -1) {
       newSelected = newSelected.concat(selected, id);
@@ -334,6 +401,7 @@ const Transactions: React.FC = () => {
   };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, transaction: Transaction) => {
+    console.log('Selected transaction:', transaction);
     setAnchorEl(event.currentTarget);
     setSelectedTransaction(transaction);
   };
@@ -343,14 +411,9 @@ const Transactions: React.FC = () => {
     setSelectedTransaction(null);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-    }).format(amount);
-  };
 
-  const filteredCategories = categories?.filter(c => c.type === watchType) || [];
+  // Categories don't have type - they can be used for both income and expense
+  const filteredCategories = categories || [];
 
   return (
     <Box>
@@ -426,7 +489,7 @@ const Transactions: React.FC = () => {
               >
                 <MenuItem value="">Todas</MenuItem>
                 {categories?.map(cat => (
-                  <MenuItem key={cat.id} value={cat.id}>
+                  <MenuItem key={cat._id} value={cat._id}>
                     {cat.icon} {cat.name}
                   </MenuItem>
                 ))}
@@ -504,14 +567,14 @@ const Transactions: React.FC = () => {
               <TableBody>
                 {transactions?.transactions?.map((transaction: Transaction) => (
                   <TableRow
-                    key={transaction.id}
+                    key={transaction._id}
                     hover
-                    selected={selected.indexOf(transaction.id) !== -1}
+                    selected={selected.indexOf(transaction._id) !== -1}
                   >
                     <TableCell padding="checkbox">
                       <Checkbox
-                        checked={selected.indexOf(transaction.id) !== -1}
-                        onChange={() => handleSelectOne(transaction.id)}
+                        checked={selected.indexOf(transaction._id) !== -1}
+                        onChange={() => handleSelectOne(transaction._id)}
                       />
                     </TableCell>
                     <TableCell>
@@ -519,12 +582,12 @@ const Transactions: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        icon={<span>{transaction.icon}</span>}
-                        label={transaction.category_name}
+                        icon={<span>{(transaction as any).categoryId?.icon || transaction.icon || '📂'}</span>}
+                        label={(transaction as any).categoryId?.name || transaction.category_name || 'Sin categoría'}
                         size="small"
                         sx={{
-                          bgcolor: transaction.color + '20',
-                          color: transaction.color,
+                          bgcolor: ((transaction as any).categoryId?.color || transaction.color || '#666') + '20',
+                          color: (transaction as any).categoryId?.color || transaction.color || '#666',
                         }}
                       />
                     </TableCell>
@@ -536,7 +599,7 @@ const Transactions: React.FC = () => {
                         color={transaction.type === 'income' ? 'success.main' : 'error.main'}
                       >
                         {transaction.type === 'income' ? '+' : '-'}
-                        {formatCurrency(transaction.amount)}
+                        {formatCurrency(transaction.amount, transaction.currency)}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -595,8 +658,11 @@ const Transactions: React.FC = () => {
         </MenuItem>
         <MenuItem
           onClick={() => {
-            if (selectedTransaction) {
-              handleDelete(selectedTransaction.id);
+            if (selectedTransaction && selectedTransaction._id) {
+              handleDelete(selectedTransaction._id);
+            } else {
+              console.error('Transaction or _id is missing:', selectedTransaction);
+              toast.error('Error: Transaction ID is missing');
             }
             handleMenuClose();
           }}
@@ -609,12 +675,22 @@ const Transactions: React.FC = () => {
       </Menu>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          style: {
+            maxHeight: '90vh',
+          }
+        }}
+      >
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>
             {editingTransaction ? 'Editar Transacción' : 'Nueva Transacción'}
           </DialogTitle>
-          <DialogContent>
+          <DialogContent sx={{ overflowY: 'auto' }}>
             <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12}>
                 <Controller
@@ -657,11 +733,34 @@ const Transactions: React.FC = () => {
                       helperText={errors.amount?.message}
                       InputProps={{
                         startAdornment: (
-                          <InputAdornment position="start">S/</InputAdornment>
+                          <InputAdornment position="start">
+                            {getCurrencySymbol(watch('currency') || userData?.currency || 'PEN')}
+                          </InputAdornment>
                         ),
                       }}
                       inputProps={{ step: 0.01, min: 0 }}
                     />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <Controller
+                  name="currency"
+                  control={control}
+                  render={({ field }) => (
+                    <FormControl fullWidth>
+                      <InputLabel>
+                        <Box display="flex" alignItems="center" gap={0.5}>
+                          <MoneyIcon fontSize="small" />
+                          Moneda
+                        </Box>
+                      </InputLabel>
+                      <Select {...field} label="Moneda" value={field.value || userData?.currency || 'PEN'}>
+                        <MenuItem value="PEN">🇵🇪 PEN - Sol Peruano</MenuItem>
+                        <MenuItem value="USD">🇺🇸 USD - Dólar</MenuItem>
+                      </Select>
+                    </FormControl>
                   )}
                 />
               </Grid>
@@ -676,7 +775,7 @@ const Transactions: React.FC = () => {
                       <InputLabel>Categoría</InputLabel>
                       <Select {...field} label="Categoría">
                         {filteredCategories.map(cat => (
-                          <MenuItem key={cat.id} value={cat.id}>
+                          <MenuItem key={cat._id} value={cat._id}>
                             <Box display="flex" alignItems="center" gap={1}>
                               <span>{cat.icon}</span>
                               {cat.name}
@@ -744,15 +843,20 @@ const Transactions: React.FC = () => {
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth>
-                      <InputLabel>Método de Pago</InputLabel>
+                      <InputLabel>
+                        <Box display="flex" alignItems="center" gap={0.5}>
+                          <PaymentIcon fontSize="small" />
+                          Método de Pago
+                        </Box>
+                      </InputLabel>
                       <Select {...field} label="Método de Pago">
                         <MenuItem value="">Ninguno</MenuItem>
-                        <MenuItem value="cash">Efectivo</MenuItem>
-                        <MenuItem value="debit">Débito</MenuItem>
-                        <MenuItem value="credit">Crédito</MenuItem>
-                        <MenuItem value="transfer">Transferencia</MenuItem>
-                        <MenuItem value="yape">Yape</MenuItem>
-                        <MenuItem value="plin">Plin</MenuItem>
+                        <MenuItem value="cash">💵 Efectivo</MenuItem>
+                        <MenuItem value="debit">💳 Débito</MenuItem>
+                        <MenuItem value="credit">💳 Crédito</MenuItem>
+                        <MenuItem value="transfer">🏦 Transferencia</MenuItem>
+                        <MenuItem value="yape">📱 Yape</MenuItem>
+                        <MenuItem value="plin">📱 Plin</MenuItem>
                       </Select>
                     </FormControl>
                   )}
@@ -770,6 +874,13 @@ const Transactions: React.FC = () => {
                       label="Etiquetas"
                       placeholder="Separadas por comas: urgente, importante, planificado"
                       helperText="Separa las etiquetas con comas"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <LabelIcon />
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                   )}
                 />
@@ -780,13 +891,18 @@ const Transactions: React.FC = () => {
                   name="is_recurring"
                   control={control}
                   render={({ field }) => (
-                    <FormControl fullWidth>
-                      <InputLabel>¿Es recurrente?</InputLabel>
-                      <Select {...field} label="¿Es recurrente?" value={field.value ? 'yes' : 'no'} onChange={(e) => field.onChange(e.target.value === 'yes')}>
-                        <MenuItem value="no">No</MenuItem>
-                        <MenuItem value="yes">Sí</MenuItem>
-                      </Select>
-                    </FormControl>
+                    <FormControlLabel
+                      control={
+                        <Switch 
+                          {...field} 
+                          checked={field.value}
+                          icon={<RepeatIcon />}
+                          checkedIcon={<RepeatIcon />}
+                        />
+                      }
+                      label="Pago Recurrente"
+                      sx={{ mt: 1 }}
+                    />
                   )}
                 />
               </Grid>
