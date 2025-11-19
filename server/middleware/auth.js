@@ -12,7 +12,12 @@ const authMiddleware = (req, res, next) => {
         
         const decoded = jwt.verify(token, JWT_SECRET);
         req.userId = decoded.userId;
-        req.user = decoded;
+        req.user = { 
+            _id: decoded.userId,
+            userId: decoded.userId,
+            email: decoded.email,
+            username: decoded.username
+        };
         next();
     } catch (error) {
         res.status(401).json({ error: 'Please authenticate' });
@@ -26,7 +31,12 @@ const optionalAuth = (req, res, next) => {
         if (token) {
             const decoded = jwt.verify(token, JWT_SECRET);
             req.userId = decoded.userId;
-            req.user = decoded;
+            req.user = { 
+                _id: decoded.userId,
+                userId: decoded.userId,
+                email: decoded.email,
+                username: decoded.username
+            };
         }
         next();
     } catch (error) {

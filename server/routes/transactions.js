@@ -88,7 +88,8 @@ router.get('/:id', authMiddleware, async (req, res) => {
 // Create transaction
 router.post('/', authMiddleware, async (req, res) => {
     try {
-        const { type, amount, categoryId, description, date, householdId, isShared } = req.body;
+        const { type, amount, categoryId, description, date, householdId, isShared, 
+                paymentMethod, tags, isRecurring, recurringPeriod, currency } = req.body;
 
         // Validate input
         if (!type || !amount || !categoryId) {
@@ -99,8 +100,11 @@ router.post('/', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: 'Invalid transaction type' });
         }
 
-        if (amount <= 0) {
-            return res.status(400).json({ error: 'Amount must be greater than 0' });
+        // Ensure amount is a number
+        const numAmount = parseFloat(amount);
+        
+        if (isNaN(numAmount) || numAmount <= 0) {
+            return res.status(400).json({ error: 'Amount must be a valid number greater than 0' });
         }
 
         // Verify category exists and belongs to user or is default
@@ -115,6 +119,11 @@ router.post('/', authMiddleware, async (req, res) => {
         if (!category) {
             return res.status(400).json({ error: 'Invalid category' });
         }
+
+        // Get user's default currency if not provided
+        const User = require('../models/User');
+        const user = await User.findById(req.userId);
+        const transactionCurrency = currency || user.currency || 'PEN';
 
         // If shared, verify user has permission in household
         let sharedWith = [];
@@ -143,10 +152,15 @@ router.post('/', authMiddleware, async (req, res) => {
             isShared: isShared || false,
             sharedWith,
             type,
-            amount,
+            amount: numAmount,
+            currency: transactionCurrency,
             categoryId,
             description: description || '',
-            date: date ? new Date(date) : new Date()
+            date: date ? new Date(date) : new Date(),
+            paymentMethod: paymentMethod || '',
+            tags: tags || [],
+            isRecurring: isRecurring || false,
+            recurringPeriod: recurringPeriod || 'monthly'
         });
 
         await transaction.save();
@@ -214,16 +228,16 @@ router.post('/', authMiddleware, async (req, res) => {
         }
 
         // Create notification for significant transactions
-        if ((type === 'expense' && amount >= 500) || (type === 'income' && amount >= 1000)) {
+        if ((type === 'expense' && numAmount >= 500) || (type === 'income' && numAmount >= 1000)) {
             const title = type === 'income' ? '💰 Ingreso Significativo' : '💸 Gasto Significativo';
-            const message = `${type === 'income' ? 'Ingreso' : 'Gasto'} de $${amount.toFixed(2)} en ${category.name}`;
+            const message = `${type === 'income' ? 'Ingreso' : 'Gasto'} de $${numAmount.toFixed(2)} en ${category.name}`;
             
             await createNotification(
                 req.userId,
                 'transaction',
                 title,
                 message,
-                { transactionId: transaction._id, amount, categoryName: category.name }
+                { transactionId: transaction._id, amount: numAmount, categoryName: category.name }
             );
         }
 
@@ -243,7 +257,8 @@ router.post('/', authMiddleware, async (req, res) => {
 // Update transaction
 router.put('/:id', authMiddleware, async (req, res) => {
     try {
-        const { type, amount, categoryId, description, date } = req.body;
+        const { type, amount, categoryId, description, date, 
+                paymentMethod, tags, isRecurring, recurringPeriod, currency } = req.body;
 
         // Find transaction
         const transaction = await Transaction.findOne({
@@ -264,10 +279,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
         }
 
         if (amount !== undefined) {
-            if (amount <= 0) {
-                return res.status(400).json({ error: 'Amount must be greater than 0' });
+            const numAmount = parseFloat(amount);
+            if (isNaN(numAmount) || numAmount <= 0) {
+                return res.status(400).json({ error: 'Amount must be a valid number greater than 0' });
             }
-            transaction.amount = amount;
+            transaction.amount = numAmount;
         }
 
         if (categoryId !== undefined) {
@@ -286,6 +302,16 @@ router.put('/:id', authMiddleware, async (req, res) => {
 
         if (description !== undefined) transaction.description = description;
         if (date !== undefined) transaction.date = new Date(date);
+        if (paymentMethod !== undefined) transaction.paymentMethod = paymentMethod;
+        if (tags !== undefined) transaction.tags = tags;
+        if (isRecurring !== undefined) transaction.isRecurring = isRecurring;
+        if (recurringPeriod !== undefined) transaction.recurringPeriod = recurringPeriod;
+        if (currency !== undefined) {
+            if (!['USD', 'PEN'].includes(currency)) {
+                return res.status(400).json({ error: 'Invalid currency' });
+            }
+            transaction.currency = currency;
+        }
 
         await transaction.save();
         await transaction.populate('categoryId');
@@ -303,9 +329,52 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 });
 
+// Bulk delete transactions
+router.post('/bulk-delete', authMiddleware, async (req, res) => {
+    try {
+        const { ids } = req.body;
+        
+        // Validate input
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'No transaction IDs provided' });
+        }
+        
+        // Validate all IDs
+        const invalidIds = ids.filter(id => !id || id === 'undefined');
+        if (invalidIds.length > 0) {
+            return res.status(400).json({ error: 'Invalid transaction IDs provided' });
+        }
+        
+        // Delete only transactions that belong to the user
+        const result = await Transaction.deleteMany({
+            _id: { $in: ids },
+            userId: req.userId
+        });
+        
+        // Emit socket event for real-time update
+        const io = getIo();
+        if (io) {
+            io.to(`user_${req.userId}`).emit('transactions-deleted', { ids, count: result.deletedCount });
+        }
+        
+        res.json({ 
+            message: `${result.deletedCount} transactions deleted successfully`,
+            deletedCount: result.deletedCount 
+        });
+    } catch (error) {
+        console.error('Bulk delete transactions error:', error);
+        res.status(500).json({ error: 'Failed to delete transactions' });
+    }
+});
+
 // Delete transaction
 router.delete('/:id', authMiddleware, async (req, res) => {
     try {
+        // Validate ID
+        if (!req.params.id || req.params.id === 'undefined') {
+            return res.status(400).json({ error: 'Transaction ID is required' });
+        }
+
         const transaction = await Transaction.findOne({
             _id: req.params.id,
             userId: req.userId

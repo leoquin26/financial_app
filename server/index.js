@@ -18,6 +18,9 @@ const dashboardRoutes = require('./routes/dashboard');
 const { router: notificationRoutes } = require('./routes/notifications');
 const analyticsRoutes = require('./routes/analytics');
 const householdRoutes = require('./routes/households');
+const paymentsRoutes = require('./routes/payments');
+const weeklyBudgetRoutes = require('./routes/weeklyBudget');
+const aiRecommendationsRoutes = require('./routes/aiRecommendations');
 
 // Import MongoDB connection
 const connectDB = require('./config/database');
@@ -28,7 +31,7 @@ const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
         origin: process.env.CLIENT_URL || "http://localhost:3000",
-        methods: ["GET", "POST", "PUT", "DELETE"]
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
     }
 });
 
@@ -87,7 +90,7 @@ const corsOptions = {
     },
     credentials: true,
     optionsSuccessStatus: 200,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 };
 
@@ -114,6 +117,10 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/households', householdRoutes);
+app.use('/api/payments', paymentsRoutes);
+app.use('/api/weekly-budget', weeklyBudgetRoutes);
+app.use('/api/main-budgets', require('./routes/mainBudget'));
+app.use('/api/ai', aiRecommendationsRoutes);
 
 // Serve static files from React app in production
 if (process.env.NODE_ENV === 'production') {

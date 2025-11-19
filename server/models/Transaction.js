@@ -29,6 +29,12 @@ const transactionSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  currency: {
+    type: String,
+    enum: ['USD', 'PEN'],
+    required: true,
+    default: 'PEN'
+  },
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
@@ -38,6 +44,27 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: 500
+  },
+  paymentMethod: {
+    type: String,
+    trim: true
+  },
+  tags: [{
+    type: String,
+    trim: true
+  }],
+  isRecurring: {
+    type: Boolean,
+    default: false
+  },
+  recurringPeriod: {
+    type: String,
+    enum: ['daily', 'weekly', 'monthly', 'yearly'],
+    default: 'monthly'
+  },
+  paymentScheduleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PaymentSchedule'
   },
   date: {
     type: Date,

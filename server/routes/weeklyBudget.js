@@ -1,0 +1,1908 @@
+const express = require('express');
+const router = express.Router();
+const { authMiddleware: auth } = require('../middleware/auth');
+const WeeklyBudget = require('../models/WeeklyBudget');
+const PaymentSchedule = require('../models/PaymentSchedule');
+const Transaction = require('../models/Transaction');
+const Category = require('../models/Category');
+
+// Helper function to generate budget insights
+async function generateBudgetInsights(userId, budget = null) {
+  try {
+    // Get last 12 weeks of data
+    const twelveWeeksAgo = new Date();
+    twelveWeeksAgo.setDate(twelveWeeksAgo.getDate() - 84);
+    
+    const historicalBudgets = await WeeklyBudget.find({
+      userId,
+      weekStartDate: { $gte: twelveWeeksAgo }
+    }).populate('categories.categoryId');
+    
+    if (historicalBudgets.length < 3) {
+      return {
+        averageWeeklySpending: 0,
+        topCategories: [],
+        savingsRate: 0,
+        recommendations: ['Create more budgets to unlock insights']
+      };
+    }
+    
+    // Calculate averages
+    const categoryTotals = {};
+    let totalSpending = 0;
+    
+    historicalBudgets.forEach(b => {
+      b.categories?.forEach(cat => {
+        const spent = cat.payments.reduce((sum, p) => 
+          p.status === 'paid' ? sum + p.amount : sum, 0
+        );
+        
+        if (!categoryTotals[cat.categoryId._id]) {
+          categoryTotals[cat.categoryId._id] = {
+            name: cat.categoryId.name,
+            total: 0,
+            count: 0,
+            amounts: []
+          };
+        }
+        
+        categoryTotals[cat.categoryId._id].total += spent;
+        categoryTotals[cat.categoryId._id].count += 1;
+        categoryTotals[cat.categoryId._id].amounts.push(spent);
+        totalSpending += spent;
+      });
+    });
+    
+    // Calculate trends
+    const topCategories = Object.entries(categoryTotals)
+      .map(([id, data]) => {
+        const average = data.total / data.count;
+        const recent = data.amounts.slice(-3).reduce((a, b) => a + b, 0) / 3;
+        const older = data.amounts.slice(0, 3).reduce((a, b) => a + b, 0) / 3;
+        
+        return {
+          categoryId: id,
+          name: data.name,
+          average: Math.round(average),
+          trend: recent > older * 1.1 ? 'up' : recent < older * 0.9 ? 'down' : 'stable'
+        };
+      })
+      .sort((a, b) => b.average - a.average)
+      .slice(0, 5);
+    
+    const averageWeeklySpending = Math.round(totalSpending / historicalBudgets.length);
+    
+    // Generate recommendations
+    const recommendations = [];
+    topCategories.forEach(cat => {
+      if (cat.trend === 'up') {
+        recommendations.push(`Your ${cat.name} spending is trending up. Consider reviewing this category.`);
+      }
+    });
+    
+    return {
+      averageWeeklySpending,
+      topCategories,
+      savingsRate: 0, // TODO: Calculate based on income
+      recommendations: recommendations.slice(0, 3),
+      suggestedTotal: averageWeeklySpending * 1.05 // 5% buffer
+    };
+  } catch (error) {
+    console.error('Error generating insights:', error);
+    return null;
+  }
+}
+
+// Helper function to create smart budget
+async function createSmartBudget(userId, weekStartDate, insights) {
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekStartDate.getDate() + 6);
+  weekEndDate.setHours(23, 59, 59, 999);
+  
+  const categories = insights.topCategories.map(cat => ({
+    categoryId: cat.categoryId,
+    allocation: cat.average * 1.1, // 10% buffer
+    payments: []
+  }));
+  
+  return new WeeklyBudget({
+    userId,
+    weekStartDate,
+    weekEndDate,
+    totalBudget: insights.suggestedTotal,
+    creationMode: 'smart',
+    categories,
+    insights: {
+      suggestedTotal: insights.suggestedTotal,
+      topCategories: insights.topCategories,
+      recommendations: insights.recommendations,
+      lastAnalyzed: new Date()
+    }
+  });
+}
+
+// Get current week's budget
+router.get('/current', auth, async (req, res) => {
+  try {
+    console.log('Getting current week budget for user:', req.user);
+    
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ error: 'User not authenticated properly' });
+    }
+    
+    let budget = await WeeklyBudget.getCurrentWeek(req.user._id);
+    
+    if (!budget) {
+      // Auto-create budget for current week
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      budget = new WeeklyBudget({
+        userId: req.user._id,
+        weekStartDate: startOfWeek,
+        weekEndDate: endOfWeek,
+        totalBudget: 0,
+        allocations: [],
+        categories: [],
+        creationMode: 'manual'
+      });
+      
+      await budget.save();
+    }
+
+    // Don't recalculate spent amounts - they are maintained by the allocation status updates
+    // Just populate and return the budget as is
+    await budget.populate('allocations.categoryId');
+    await budget.populate('categories.categoryId');
+    
+    console.log('Returning budget:', {
+      id: budget._id,
+      totalBudget: budget.totalBudget,
+      categoriesCount: budget.categories?.length || 0,
+      allocationsCount: budget.allocations?.length || 0,
+      weekStart: budget.weekStartDate,
+      weekEnd: budget.weekEndDate
+    });
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error fetching current week budget:', error);
+    res.status(500).json({ error: 'Failed to fetch current week budget' });
+  }
+});
+
+// Get budgets by date range (alias for clearer API)
+router.get('/range', auth, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    console.log('Fetching budgets for range:', { startDate, endDate, userId: req.user._id });
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate are required' });
+    }
+    
+    // Find budgets where the week overlaps with the requested range
+    const budgets = await WeeklyBudget.find({
+      userId: req.user._id,
+      $or: [
+        // Budget starts within the range
+        { 
+          weekStartDate: { 
+            $gte: new Date(startDate), 
+            $lte: new Date(endDate) 
+          } 
+        },
+        // Budget ends within the range
+        { 
+          weekEndDate: { 
+            $gte: new Date(startDate), 
+            $lte: new Date(endDate) 
+          } 
+        },
+        // Budget spans the entire range
+        {
+          weekStartDate: { $lte: new Date(startDate) },
+          weekEndDate: { $gte: new Date(endDate) }
+        }
+      ]
+    })
+    .populate('allocations.categoryId')
+    .sort('-weekStartDate');
+
+    console.log(`Found ${budgets.length} budgets for date range`);
+    res.json(budgets);
+  } catch (error) {
+    console.error('Error fetching budgets by range:', error);
+    res.status(500).json({ error: 'Failed to fetch budgets' });
+  }
+});
+
+// Get specific weekly budget by ID
+router.get('/:id', auth, async (req, res) => {
+  try {
+    console.log('Fetching weekly budget:', req.params.id, 'for user:', req.user._id);
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: req.params.id,
+      $or: [
+        { userId: req.user._id },
+        { householdId: { $in: req.user.households || [] } }
+      ]
+    })
+    .populate('categories.categoryId')
+    .populate('categories.payments.paidBy', 'name email');
+    
+    if (!budget) {
+      console.log('Budget not found for ID:', req.params.id);
+      return res.status(404).json({ error: 'Weekly budget not found' });
+    }
+    
+    console.log('Found budget with', budget.categories.length, 'categories');
+    res.json(budget);
+  } catch (error) {
+    console.error('Error fetching weekly budget:', error);
+    res.status(500).json({ error: 'Failed to fetch weekly budget' });
+  }
+});
+
+// Get budget by date range
+router.get('/', auth, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const query = { userId: req.user._id };
+
+    if (startDate && endDate) {
+      query.weekStartDate = { $gte: new Date(startDate) };
+      query.weekEndDate = { $lte: new Date(endDate) };
+    }
+
+    const budgets = await WeeklyBudget.find(query)
+      .populate('allocations.categoryId')
+      .sort('-weekStartDate');
+
+    res.json(budgets);
+  } catch (error) {
+    console.error('Error fetching budgets:', error);
+    res.status(500).json({ error: 'Failed to fetch budgets' });
+  }
+});
+
+
+// Create or update weekly budget with smart features
+router.post('/smart-create', auth, async (req, res) => {
+  try {
+    console.log('Smart creating budget for user:', req.user._id);
+    
+    const { 
+      weekStartDate, 
+      mode = 'manual',
+      templateId,
+      totalBudget,
+      categories = [],
+      allocations // backward compatibility
+    } = req.body;
+    
+    const startDate = new Date(weekStartDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+
+    let budget;
+    let createdPayments = [];
+
+    // Check if budget already exists
+    const existingBudget = await WeeklyBudget.findOne({
+      userId: req.user._id,
+      weekStartDate: { $lte: startDate },
+      weekEndDate: { $gte: startDate }
+    });
+
+    if (existingBudget) {
+      // Delete the existing budget and its associated payments
+      console.log('Deleting existing budget for week:', existingBudget._id);
+      
+      // Delete associated payment schedules
+      await PaymentSchedule.deleteMany({ weeklyBudgetId: existingBudget._id });
+      
+      // Delete the budget
+      await WeeklyBudget.findByIdAndDelete(existingBudget._id);
+    }
+
+    // Handle different creation modes
+    if (mode === 'template' && templateId) {
+      // Create from template
+      budget = await WeeklyBudget.createFromTemplate(req.user._id, startDate, templateId);
+    } else if (mode === 'smart') {
+      // Smart creation based on history
+      const insights = await generateBudgetInsights(req.user._id);
+      budget = await createSmartBudget(req.user._id, startDate, insights);
+    } else {
+      // Manual creation
+      budget = new WeeklyBudget({
+        userId: req.user._id,
+        weekStartDate: startDate,
+        weekEndDate: endDate,
+        totalBudget,
+        creationMode: 'manual',
+        categories: categories.map(cat => ({
+          categoryId: cat.categoryId,
+          allocation: cat.allocation,
+          payments: []
+        })),
+        allocations: allocations || [] // backward compatibility
+      });
+    }
+
+    // Process embedded payments
+    if (categories.length > 0) {
+      for (const category of categories) {
+        if (category.payments && category.payments.length > 0) {
+          const budgetCategory = budget.categories.find(
+            c => c.categoryId.toString() === category.categoryId
+          );
+
+          for (const paymentData of category.payments) {
+            // Create PaymentSchedule entry
+            const payment = new PaymentSchedule({
+              userId: req.user._id,
+              name: paymentData.name,
+              amount: paymentData.amount,
+              categoryId: category.categoryId,
+              dueDate: paymentData.scheduledDate,
+              frequency: paymentData.isRecurring ? 'monthly' : 'once',
+              status: 'pending',
+              reminder: { enabled: true, daysBefore: 1 },
+              notes: paymentData.notes,
+              weeklyBudgetId: budget._id,
+              householdId: budget.householdId // Include household ID if budget is shared
+            });
+
+            await payment.save();
+            createdPayments.push(payment);
+
+            // Add to budget category
+            budgetCategory.payments.push({
+              name: paymentData.name,
+              amount: paymentData.amount,
+              scheduledDate: paymentData.scheduledDate,
+              status: 'pending',
+              paymentScheduleId: payment._id,
+              isRecurring: paymentData.isRecurring,
+              notes: paymentData.notes
+            });
+          }
+        }
+      }
+    }
+
+    await budget.save();
+    await budget.populate('categories.categoryId allocations.categoryId');
+    
+    // Generate initial insights
+    const insights = await generateBudgetInsights(req.user._id, budget);
+    
+    res.json({
+      budget,
+      payments: createdPayments,
+      insights
+    });
+  } catch (error) {
+    console.error('Error in smart budget creation:', error);
+    res.status(500).json({ error: 'Failed to create budget' });
+  }
+});
+
+// Original endpoint for backward compatibility
+router.post('/', auth, async (req, res) => {
+  try {
+    console.log('Creating/updating budget for user:', req.user);
+    
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ error: 'User not authenticated properly' });
+    }
+    
+    const { weekStartDate, totalBudget, allocations } = req.body;
+    
+    const startDate = new Date(weekStartDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Check if budget already exists for this week
+    let budget = await WeeklyBudget.findOne({
+      userId: req.user._id,
+      weekStartDate: { $lte: startDate },
+      weekEndDate: { $gte: startDate }
+    });
+
+    if (budget) {
+      // Update existing budget
+      budget.totalBudget = totalBudget;
+      budget.allocations = allocations || [];
+    } else {
+      // Create new budget
+      budget = new WeeklyBudget({
+        userId: req.user._id,
+        weekStartDate: startDate,
+        weekEndDate: endDate,
+        totalBudget,
+        allocations: allocations || []
+      });
+    }
+
+    // Get scheduled payments for this week
+    const scheduledPayments = await PaymentSchedule.find({
+      userId: req.user._id,
+      dueDate: { $gte: startDate, $lte: endDate },
+      status: { $in: ['pending', 'overdue'] }
+    });
+
+    budget.scheduledPayments = scheduledPayments.map(p => p._id);
+    budget.updateRemainingBudget();
+    
+    await budget.save();
+    await budget.populate('allocations.categoryId scheduledPayments');
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error creating/updating budget:', error);
+    res.status(500).json({ error: 'Failed to save budget' });
+  }
+});
+
+// Generate budget insights and recommendations
+router.post('/:id/analyze', auth, async (req, res) => {
+  try {
+    const budget = await WeeklyBudget.findOne({
+      _id: req.params.id,
+      userId: req.user._id
+    }).populate('allocations.categoryId');
+
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+
+    // Get transaction history for analysis
+    const historicalTransactions = await Transaction.find({
+      userId: req.user._id,
+      type: 'expense',
+      date: {
+        $gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // Last 90 days
+        $lte: budget.weekEndDate
+      }
+    });
+
+    // Calculate spending patterns
+    const categorySpending = {};
+    historicalTransactions.forEach(trans => {
+      const categoryId = trans.categoryId.toString();
+      if (!categorySpending[categoryId]) {
+        categorySpending[categoryId] = {
+          total: 0,
+          count: 0,
+          amounts: []
+        };
+      }
+      categorySpending[categoryId].total += trans.amount;
+      categorySpending[categoryId].count += 1;
+      categorySpending[categoryId].amounts.push(trans.amount);
+    });
+
+    // Generate insights
+    const insights = {
+      topCategories: [],
+      savingsPotential: 0,
+      recommendations: [],
+      lastAnalyzed: new Date()
+    };
+
+    // Find top spending categories
+    const sortedCategories = Object.entries(categorySpending)
+      .sort(([, a], [, b]) => b.total - a.total)
+      .slice(0, 5);
+
+    for (const [categoryId, data] of sortedCategories) {
+      const category = await Category.findById(categoryId);
+      const avgSpending = data.total / data.count;
+      const allocation = budget.allocations.find(a => a.categoryId.toString() === categoryId);
+      
+      insights.topCategories.push({
+        categoryId,
+        amount: avgSpending,
+        percentage: (data.total / historicalTransactions.reduce((sum, t) => sum + t.amount, 0)) * 100
+      });
+
+      // Generate recommendations
+      if (allocation && allocation.amount < avgSpending * 0.8) {
+        insights.recommendations.push(
+          `Consider increasing your ${category.name} budget. You typically spend $${avgSpending.toFixed(2)} but only allocated $${allocation.amount}.`
+        );
+      }
+
+      // Find potential savings
+      const amounts = data.amounts.sort((a, b) => a - b);
+      const median = amounts[Math.floor(amounts.length / 2)];
+      if (avgSpending > median * 1.5) {
+        insights.savingsPotential += avgSpending - median;
+        insights.recommendations.push(
+          `You could save up to $${(avgSpending - median).toFixed(2)} on ${category.name} by avoiding peak spending.`
+        );
+      }
+    }
+
+    // Check for unused allocations
+    budget.allocations.forEach(allocation => {
+      if (allocation.spent === 0 && allocation.amount > 0) {
+        insights.recommendations.push(
+          `You haven't used your ${allocation.categoryId.name} budget. Consider reallocating if not needed.`
+        );
+      }
+    });
+
+    // Save insights to budget
+    budget.insights = insights;
+    await budget.save();
+
+    res.json(insights);
+  } catch (error) {
+    console.error('Error analyzing budget:', error);
+    res.status(500).json({ error: 'Failed to analyze budget' });
+  }
+});
+
+// Auto-allocate budget based on scheduled payments
+router.post('/auto-allocate', auth, async (req, res) => {
+  try {
+    const { weekStartDate, totalBudget } = req.body;
+    
+    const startDate = new Date(weekStartDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + 6);
+
+    // Get scheduled payments for the week
+    const scheduledPayments = await PaymentSchedule.find({
+      userId: req.user._id,
+      dueDate: { $gte: startDate, $lte: endDate },
+      status: { $in: ['pending'] }
+    }).populate('categoryId');
+
+    // Calculate required amount for scheduled payments
+    const categoryAmounts = {};
+    let totalRequired = 0;
+
+    scheduledPayments.forEach(payment => {
+      const categoryId = payment.categoryId._id.toString();
+      if (!categoryAmounts[categoryId]) {
+        categoryAmounts[categoryId] = 0;
+      }
+      categoryAmounts[categoryId] += payment.amount;
+      totalRequired += payment.amount;
+    });
+
+    // Get historical spending for other categories
+    const historicalSpending = await Transaction.aggregate([
+      {
+        $match: {
+          userId: req.user._id,
+          type: 'expense',
+          date: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+        }
+      },
+      {
+        $group: {
+          _id: '$categoryId',
+          avgAmount: { $avg: '$amount' },
+          totalAmount: { $sum: '$amount' }
+        }
+      }
+    ]);
+
+    // Create allocations
+    const allocations = [];
+    const remainingBudget = totalBudget - totalRequired;
+
+    // First, add scheduled payment categories
+    for (const [categoryId, amount] of Object.entries(categoryAmounts)) {
+      allocations.push({
+        categoryId,
+        amount,
+        spent: 0,
+        status: 'pending'
+      });
+    }
+
+    // Then allocate remaining budget to other categories based on historical spending
+    if (remainingBudget > 0) {
+      const otherCategories = historicalSpending.filter(
+        cat => !categoryAmounts[cat._id.toString()]
+      );
+
+      const totalHistorical = otherCategories.reduce((sum, cat) => sum + cat.avgAmount, 0);
+      
+      otherCategories.forEach(cat => {
+        const percentage = cat.avgAmount / totalHistorical;
+        const allocation = Math.round(remainingBudget * percentage);
+        
+        if (allocation > 0) {
+          allocations.push({
+            categoryId: cat._id,
+            amount: allocation,
+            spent: 0,
+            status: 'pending'
+          });
+        }
+      });
+    }
+
+    res.json({
+      allocations,
+      totalRequired,
+      remainingBudget,
+      scheduledPayments: scheduledPayments.length
+    });
+  } catch (error) {
+    console.error('Error auto-allocating budget:', error);
+    res.status(500).json({ error: 'Failed to auto-allocate budget' });
+  }
+});
+
+// Update allocation status
+router.patch('/allocation/:budgetId/:allocationId', auth, async (req, res) => {
+  try {
+    const { budgetId, allocationId } = req.params;
+    const { status } = req.body;
+
+    console.log('Updating allocation status:', { budgetId, allocationId, status, userId: req.user._id });
+
+    const budget = await WeeklyBudget.findOne({
+      _id: budgetId,
+      userId: req.user._id
+    }).populate('allocations.categoryId');
+
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+
+    // Find the allocation
+    const allocation = budget.allocations.id(allocationId);
+    if (!allocation) {
+      return res.status(404).json({ error: 'Allocation not found' });
+    }
+
+    // Update status
+    allocation.status = status;
+
+    // If marking as paid
+    if (status === 'paid') {
+      allocation.paidDate = new Date();
+      
+      // Create a transaction for this payment
+      const transaction = new Transaction({
+        userId: req.user._id,
+        description: allocation.name || `Payment for ${allocation.categoryId.name}`,
+        amount: allocation.amount,
+        type: 'expense',
+        categoryId: allocation.categoryId._id,
+        date: new Date(),
+        weeklyBudgetAllocationId: allocation._id
+      });
+      
+      await transaction.save();
+      allocation.transactionId = transaction._id;
+      
+      // Update spent amount
+      allocation.spent = allocation.amount;
+      
+      // Update remaining budget
+      await budget.updateRemainingBudget();
+    } else if (status === 'pending' && allocation.transactionId) {
+      // If reverting from paid to pending, delete the transaction
+      await Transaction.findByIdAndDelete(allocation.transactionId);
+      allocation.transactionId = undefined;
+      allocation.paidDate = undefined;
+      allocation.spent = 0;
+      
+      // Update remaining budget
+      await budget.updateRemainingBudget();
+    }
+
+    await budget.save();
+
+    // Populate the updated budget
+    const updatedBudget = await WeeklyBudget.findById(budgetId)
+      .populate('allocations.categoryId')
+      .populate('scheduledPayments');
+
+    res.json(updatedBudget);
+  } catch (error) {
+    console.error('Error updating allocation status:', error);
+    res.status(500).json({ error: 'Failed to update allocation status' });
+  }
+});
+
+// Get budget history
+router.get('/history', auth, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    
+    const budgets = await WeeklyBudget.find({
+      userId: req.user._id
+    })
+    .populate('categories.categoryId allocations.categoryId')
+    .sort('-weekStartDate')
+    .limit(limit);
+    
+    res.json(budgets);
+  } catch (error) {
+    console.error('Error fetching budget history:', error);
+    res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+// Get budget insights
+router.get('/insights', auth, async (req, res) => {
+  try {
+    const insights = await generateBudgetInsights(req.user._id);
+    res.json(insights);
+  } catch (error) {
+    console.error('Error fetching insights:', error);
+    res.status(500).json({ error: 'Failed to fetch insights' });
+  }
+});
+
+// Update budget total amount
+router.patch('/:budgetId', auth, async (req, res) => {
+  try {
+    const { budgetId } = req.params;
+    const { totalBudget } = req.body;
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: budgetId,
+      $or: [
+        { userId: req.user._id },
+        { householdId: { $in: req.user.households || [] } }
+      ]
+    });
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Update total budget
+    if (totalBudget !== undefined) {
+      budget.totalBudget = totalBudget;
+      budget.updateRemainingBudget();
+    }
+    
+    await budget.save();
+    
+    // Populate and return
+    await budget.populate('categories.categoryId');
+    await budget.populate('categories.payments.paidBy');
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error updating budget:', error);
+    res.status(500).json({ error: 'Failed to update budget' });
+  }
+});
+
+// Update budget categories
+router.patch('/:budgetId/categories', auth, async (req, res) => {
+  try {
+    const { budgetId } = req.params;
+    const { categories } = req.body;
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: budgetId,
+      userId: req.user._id
+    });
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Update categories - keeping existing payments
+    const existingPaymentsByCategory = new Map();
+    budget.categories.forEach(cat => {
+      if (cat.payments && cat.payments.length > 0) {
+        existingPaymentsByCategory.set(cat.categoryId.toString(), cat.payments);
+      }
+    });
+    
+    // Calculate default allocation per category if budget is set
+    const defaultAllocation = budget.totalBudget > 0 && categories.length > 0
+      ? Math.floor(budget.totalBudget / categories.length)
+      : 0;
+    
+    // Set new categories while preserving payments
+    budget.categories = categories.map(catId => ({
+      categoryId: catId,
+      allocation: defaultAllocation,
+      payments: existingPaymentsByCategory.get(catId) || []
+    }));
+    
+    await budget.save();
+    
+    // Populate and return
+    await budget.populate('categories.categoryId');
+    await budget.populate('categories.payments.paidBy');
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error updating budget categories:', error);
+    res.status(500).json({ error: 'Failed to update categories' });
+  }
+});
+
+// Add payment to category
+router.post('/:budgetId/category/:categoryId/payment', auth, async (req, res) => {
+  try {
+    const { budgetId, categoryId } = req.params;
+    const paymentData = req.body;
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: budgetId,
+      userId: req.user._id
+    });
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Create PaymentSchedule entry
+    const payment = new PaymentSchedule({
+      userId: req.user._id,
+      name: paymentData.name,
+      amount: paymentData.amount,
+      categoryId,
+      dueDate: paymentData.scheduledDate,
+      frequency: paymentData.isRecurring ? 'monthly' : 'once',
+      status: 'pending',
+      reminder: { enabled: true, daysBefore: 1 },
+      notes: paymentData.notes,
+      weeklyBudgetId: budgetId,
+      householdId: budget.householdId // Include household ID if budget is shared
+    });
+    
+    await payment.save();
+    
+    // Add to budget category
+    await budget.addPaymentToCategory(categoryId, {
+      name: paymentData.name,
+      amount: paymentData.amount,
+      scheduledDate: paymentData.scheduledDate,
+      status: 'pending',
+      paymentScheduleId: payment._id,
+      isRecurring: paymentData.isRecurring,
+      notes: paymentData.notes
+    });
+    
+    await budget.populate('categories.categoryId');
+    
+    res.json({
+      budget,
+      payment
+    });
+  } catch (error) {
+    console.error('Error adding payment:', error);
+    res.status(500).json({ error: error.message || 'Failed to add payment' });
+  }
+});
+
+// Update payment status
+router.patch('/:budgetId/payment/:paymentId/status', auth, async (req, res) => {
+  try {
+    const { budgetId, paymentId } = req.params;
+    const { status, paidBy } = req.body;
+    
+    const budget = await WeeklyBudget.findById(budgetId);
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Check permissions - owner or household member
+    let hasAccess = budget.userId.equals(req.user._id);
+    
+    if (!hasAccess && budget.householdId && budget.isSharedWithHousehold) {
+      const Household = require('../models/Household');
+      const household = await Household.findOne({
+        _id: budget.householdId,
+        $or: [
+          { owner: req.user._id },
+          { 'members.user': req.user._id }
+        ]
+      });
+      hasAccess = !!household;
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have permission to update this budget' });
+    }
+    
+    // Find and update payment in categories
+    let found = false;
+    budget.categories.forEach(cat => {
+      const payment = cat.payments.find(p => 
+        p.paymentScheduleId?.toString() === paymentId ||
+        p._id.toString() === paymentId
+      );
+      
+      if (payment) {
+        payment.status = status;
+        if (status === 'paid') {
+          payment.paidDate = new Date();
+          payment.paidBy = paidBy || req.user._id;
+        } else {
+          payment.paidDate = undefined;
+          payment.paidBy = undefined;
+        }
+        found = true;
+      }
+    });
+    
+    if (!found) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    
+    await budget.save();
+    await budget.populate('categories.categoryId');
+    await budget.populate('categories.payments.paidBy', 'name email');
+    
+    // Also update PaymentSchedule if exists
+    await PaymentSchedule.findByIdAndUpdate(paymentId, { 
+      status,
+      paidDate: status === 'paid' ? new Date() : undefined,
+      paidBy: status === 'paid' ? (paidBy || req.user._id) : undefined
+    });
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error updating payment status:', error);
+    res.status(500).json({ error: 'Failed to update payment' });
+  }
+});
+
+// Delete category from budget
+router.delete('/:budgetId/category/:categoryId', auth, async (req, res) => {
+  try {
+    const { budgetId, categoryId } = req.params;
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: budgetId,
+      userId: req.user._id
+    });
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Find the category
+    const categoryIndex = budget.categories.findIndex(cat => 
+      cat.categoryId.toString() === categoryId ||
+      cat._id.toString() === categoryId
+    );
+    
+    if (categoryIndex === -1) {
+      return res.status(404).json({ error: 'Category not found in budget' });
+    }
+    
+    // Delete associated payment schedules
+    const category = budget.categories[categoryIndex];
+    for (const payment of category.payments) {
+      if (payment.paymentScheduleId) {
+        await PaymentSchedule.findByIdAndDelete(payment.paymentScheduleId);
+      }
+    }
+    
+    // Remove category from budget
+    budget.categories.splice(categoryIndex, 1);
+    
+    await budget.save();
+    await budget.populate('categories.categoryId allocations.categoryId');
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    res.status(500).json({ error: 'Failed to delete category' });
+  }
+});
+
+// Delete payment from category
+router.delete('/:budgetId/category/:categoryId/payment/:paymentId', auth, async (req, res) => {
+  try {
+    const { budgetId, categoryId, paymentId } = req.params;
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: budgetId,
+      userId: req.user._id
+    });
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Find the category
+    const category = budget.categories.find(cat => 
+      cat.categoryId.toString() === categoryId ||
+      cat._id.toString() === categoryId
+    );
+    
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found in budget' });
+    }
+    
+    // Find and remove payment
+    const paymentIndex = category.payments.findIndex(p => 
+      p.paymentScheduleId?.toString() === paymentId ||
+      p._id.toString() === paymentId
+    );
+    
+    if (paymentIndex === -1) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    
+    const payment = category.payments[paymentIndex];
+    
+    // Delete from PaymentSchedule collection if exists
+    if (payment.paymentScheduleId) {
+      await PaymentSchedule.findByIdAndDelete(payment.paymentScheduleId);
+    }
+    
+    // Remove payment from category
+    category.payments.splice(paymentIndex, 1);
+    
+    await budget.save();
+    await budget.populate('categories.categoryId');
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    res.status(500).json({ error: 'Failed to delete payment' });
+  }
+});
+
+// Toggle budget sharing with household
+router.patch('/:id/share', auth, async (req, res) => {
+  try {
+    const { isShared, householdId } = req.body;
+    console.log('Share budget request:', { budgetId: req.params.id, isShared, householdId });
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: req.params.id,
+      userId: req.user._id
+    });
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // If sharing, verify user belongs to the household and set householdId
+    if (isShared && householdId) {
+      const Household = require('../models/Household');
+      const household = await Household.findOne({
+        _id: householdId,
+        $or: [
+          { createdBy: req.user._id },
+          { 'members.user': req.user._id }
+        ]
+      });
+      
+      if (!household) {
+        return res.status(403).json({ error: 'You are not a member of this household' });
+      }
+      
+      budget.householdId = householdId;
+      budget.isSharedWithHousehold = true;
+    } else {
+      // If not sharing, clear the householdId
+      budget.householdId = undefined;
+      budget.isSharedWithHousehold = false;
+    }
+    
+    await budget.save();
+    
+    await budget.populate('categories.categoryId allocations.categoryId');
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error updating budget sharing:', error);
+    res.status(500).json({ error: 'Failed to update budget sharing' });
+  }
+});
+
+// Get household shared budgets
+router.get('/household/:householdId', auth, async (req, res) => {
+  try {
+    const { householdId } = req.params;
+    console.log('Fetching household budgets for:', householdId, 'User:', req.user._id);
+    
+    // Verify user belongs to the household
+    const Household = require('../models/Household');
+    const household = await Household.findOne({
+      _id: householdId,
+      $or: [
+        { createdBy: req.user._id },
+        { 'members.user': req.user._id }
+      ]
+    });
+    
+    if (!household) {
+      console.log('User not member of household');
+      return res.status(403).json({ error: 'You are not a member of this household' });
+    }
+    
+    console.log('Household structure:', {
+      createdBy: household.createdBy,
+      members: household.members,
+      memberCount: household.members ? household.members.length : 0
+    });
+    
+    // Get all shared budgets from household members
+    const memberIds = [];
+    if (household.createdBy) {
+      memberIds.push(household.createdBy);
+    }
+    household.members.forEach(m => {
+      if (m && m.user) {
+        memberIds.push(m.user);
+      }
+    });
+    console.log('Household members:', memberIds.map(id => id ? id.toString() : 'null'));
+    
+    // First, let's check all budgets for these users
+    const allUserBudgets = await WeeklyBudget.find({
+      userId: { $in: memberIds }
+    }).select('_id userId householdId isSharedWithHousehold weekStartDate');
+    
+    console.log('All budgets from household members:', JSON.stringify(allUserBudgets.map(b => ({
+      _id: b._id,
+      userId: b.userId,
+      householdId: b.householdId,
+      isSharedWithHousehold: b.isSharedWithHousehold,
+      weekStartDate: b.weekStartDate
+    })), null, 2));
+    
+    // Get shared budgets
+    const sharedBudgets = await WeeklyBudget.find({
+      householdId: householdId,
+      isSharedWithHousehold: true,
+      userId: { $in: memberIds }
+    })
+    .populate('userId', 'name email')
+    .populate('categories.categoryId')
+    .populate('categories.payments.paidBy', 'name email')
+    .populate('allocations.categoryId')
+    .sort('-weekStartDate');
+    
+    console.log('Found shared budgets:', sharedBudgets.length);
+    
+    // Sync payments from PaymentSchedule to categories
+    for (const budget of sharedBudgets) {
+      try {
+        // Check if we should sync (empty categories or force refresh)
+        const forceRefresh = req.query.refresh === 'true';
+        const needsSync = !budget.categories || budget.categories.length === 0 || forceRefresh;
+        
+        console.log(`Budget ${budget._id} sync check:`, {
+          hasCategories: !!budget.categories,
+          categoriesLength: budget.categories?.length,
+          forceRefresh,
+          needsSync
+        });
+        
+        if (needsSync && budget._id) {
+          console.log(`Syncing categories for budget ${budget._id}`);
+          
+          // Get payments from PaymentSchedule model with dueDate
+          const budgetUserId = budget.userId._id || budget.userId;
+          
+          const payments = await PaymentSchedule.find({
+            userId: budgetUserId,
+            dueDate: {
+              $gte: budget.weekStartDate,
+              $lte: budget.weekEndDate
+            }
+          }).populate('categoryId')
+            .populate('paidBy', 'name email');
+          
+          console.log(`Found ${payments.length} payments for budget ${budget._id}`);
+          
+          if (payments.length > 0) {
+            // Group payments by category
+            const categoryMap = new Map();
+            
+            payments.forEach(payment => {
+              if (!payment.categoryId) {
+                console.log('Payment without category:', payment.name);
+                return;
+              }
+              
+              const catId = payment.categoryId._id.toString();
+              if (!categoryMap.has(catId)) {
+                categoryMap.set(catId, {
+                  categoryId: payment.categoryId._id, // Store just the ID
+                  allocation: 0,
+                  payments: []
+                });
+              }
+              
+              const category = categoryMap.get(catId);
+            category.allocation += payment.amount;
+            const paymentData = {
+              _id: payment._id,
+              name: payment.name,
+              amount: payment.amount,
+              status: payment.status,
+              scheduledDate: payment.dueDate, // Map dueDate to scheduledDate
+              paidDate: payment.paidDate,
+              paidBy: payment.paidBy,
+              paymentScheduleId: payment._id,
+              notes: payment.notes
+            };
+            
+            // Log paidBy data
+            if (payment.status === 'paid') {
+              console.log('Syncing paid payment:', {
+                name: payment.name,
+                paidBy: payment.paidBy,
+                paidByType: typeof payment.paidBy
+              });
+            }
+            
+            category.payments.push(paymentData);
+            });
+            
+            // Update budget with categories
+            budget.categories = Array.from(categoryMap.values());
+            await budget.save();
+            console.log(`Updated budget with ${budget.categories.length} categories`);
+            
+            // Link payments to this budget for future updates
+            await PaymentSchedule.updateMany(
+              {
+                _id: { $in: payments.map(p => p._id) },
+                weeklyBudgetId: { $exists: false }
+              },
+              {
+                $set: { weeklyBudgetId: budget._id }
+              }
+            );
+          }
+        }
+      } catch (syncError) {
+        console.error(`Error syncing budget ${budget._id}:`, syncError);
+      }
+    }
+    
+    // Re-populate after updates with deep population
+    if (sharedBudgets.length > 0) {
+      const populatedBudgets = await WeeklyBudget.populate(sharedBudgets, [
+        { path: 'userId', select: 'name email' },
+        { path: 'categories.categoryId', select: 'name color icon' },
+        { path: 'categories.payments.paidBy', select: '_id name email' },
+        { path: 'allocations.categoryId', select: 'name color icon' }
+      ]);
+      
+      // Log to check paidBy population
+      if (populatedBudgets.length > 0 && populatedBudgets[0].categories.length > 0) {
+        const firstPayment = populatedBudgets[0].categories[0].payments.find(p => p.paidBy);
+        if (firstPayment) {
+          console.log('Sample populated paidBy:', firstPayment.paidBy);
+        }
+      }
+    }
+    
+    // Log final state
+    if (sharedBudgets.length > 0) {
+      console.log('First budget after sync:', {
+        hasCategories: !!sharedBudgets[0].categories,
+        categoriesLength: sharedBudgets[0].categories?.length,
+        firstCategory: sharedBudgets[0].categories?.[0]
+      });
+    }
+    
+    res.json(sharedBudgets);
+  } catch (error) {
+    console.error('Error fetching household budgets:', error);
+    console.error('Error details:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch household budgets', 
+      details: error.message 
+    });
+  }
+});
+
+// Sync categories for a specific budget
+router.post('/:budgetId/sync-categories', auth, async (req, res) => {
+  try {
+    const { budgetId } = req.params;
+    
+    const budget = await WeeklyBudget.findById(budgetId).populate('userId');
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    console.log('Budget found:', {
+      _id: budget._id,
+      userId: budget.userId,
+      userIdType: typeof budget.userId,
+      reqUserId: req.user._id,
+      householdId: budget.householdId,
+      isSharedWithHousehold: budget.isSharedWithHousehold
+    });
+    
+    // Check if user has access (either owner or household member)
+    let hasAccess = false;
+    
+    try {
+      // Handle both populated and non-populated userId
+      const budgetUserId = budget.userId._id || budget.userId;
+      hasAccess = budgetUserId && budgetUserId.toString() === req.user._id.toString();
+    } catch (err) {
+      console.error('Error comparing user IDs:', err);
+    }
+    
+    if (!hasAccess && budget.householdId && budget.isSharedWithHousehold) {
+      const Household = require('../models/Household');
+      const household = await Household.findOne({
+        _id: budget.householdId,
+        $or: [
+          { createdBy: req.user._id },
+          { 'members.user': req.user._id }
+        ]
+      });
+      hasAccess = !!household;
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    console.log(`Starting sync for budget ${budgetId}`);
+    console.log('Budget details:', {
+      _id: budget._id,
+      userId: budget.userId,
+      weekStartDate: budget.weekStartDate,
+      weekEndDate: budget.weekEndDate,
+      currentCategories: budget.categories?.length || 0
+    });
+    
+    // Get payments from PaymentSchedule model with dueDate
+    const queryUserId = budget.userId._id || budget.userId;
+    
+    console.log('Searching for payments in week range...');
+    const payments = await PaymentSchedule.find({
+      userId: queryUserId,
+      dueDate: {
+        $gte: budget.weekStartDate,
+        $lte: budget.weekEndDate
+      }
+    }).populate('categoryId')
+      .populate('paidBy', 'name email');
+    
+    console.log(`Found ${payments.length} payments for budget week`);
+    
+    if (payments.length === 0) {
+      return res.json({
+        message: 'No payments found for this budget week',
+        categoriesCount: 0,
+        budget
+      });
+    }
+    
+    // Group payments by category
+    const categoryMap = new Map();
+    
+    payments.forEach(payment => {
+      if (!payment.categoryId) {
+        console.log('Skipping payment without category:', payment.name);
+        return;
+      }
+      
+      console.log('Processing payment:', {
+        name: payment.name,
+        amount: payment.amount,
+        categoryName: payment.categoryId.name
+      });
+      
+      const catId = payment.categoryId._id.toString();
+      if (!categoryMap.has(catId)) {
+        categoryMap.set(catId, {
+          categoryId: payment.categoryId._id, // Store just the ID
+          allocation: 0,
+          payments: []
+        });
+      }
+      
+      const category = categoryMap.get(catId);
+      category.allocation += payment.amount;
+      const paymentData = {
+        _id: payment._id,
+        name: payment.name,
+        amount: payment.amount,
+        status: payment.status,
+        scheduledDate: payment.dueDate, // Map dueDate to scheduledDate for consistency
+        paidDate: payment.paidDate,
+        paidBy: payment.paidBy,
+        paymentScheduleId: payment._id,
+        notes: payment.notes
+      };
+      
+      // Log paidBy data for debugging
+      if (payment.status === 'paid') {
+        console.log('Sync categories - paid payment:', {
+          name: payment.name,
+          paidBy: payment.paidBy,
+          paidByType: typeof payment.paidBy,
+          paidByPopulated: payment.populated && payment.populated('paidBy')
+        });
+      }
+      
+      category.payments.push(paymentData);
+    });
+    
+    // Update budget with categories
+    budget.categories = Array.from(categoryMap.values());
+    await budget.save();
+    
+    // Link payments to this budget for future updates
+    await PaymentSchedule.updateMany(
+      {
+        _id: { $in: payments.map(p => p._id) },
+        weeklyBudgetId: { $exists: false }
+      },
+      {
+        $set: { weeklyBudgetId: budget._id }
+      }
+    );
+    
+    // Populate and return
+    await budget.populate([
+      { path: 'categories.categoryId', select: 'name color icon' },
+      { path: 'categories.payments.paidBy', select: 'name email' }
+    ]);
+    
+    res.json({
+      message: 'Categories synced successfully',
+      categoriesCount: budget.categories.length,
+      budget
+    });
+  } catch (error) {
+    console.error('Error syncing categories:', error);
+    console.error('Error details:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to sync categories',
+      details: error.message 
+    });
+  }
+});
+
+// Diagnostic endpoint to check payments for a budget
+router.get('/:budgetId/check-payments', auth, async (req, res) => {
+  try {
+    const { budgetId } = req.params;
+    
+    const budget = await WeeklyBudget.findById(budgetId);
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Check all payments for this user
+    const allUserPayments = await PaymentSchedule.find({
+      userId: budget.userId
+    }).populate('categoryId').sort('dueDate');
+    
+    // Check payments with weeklyBudgetId
+    const linkedPayments = await PaymentSchedule.find({
+      weeklyBudgetId: budget._id
+    }).populate('categoryId');
+    
+    // Check payments in date range
+    const weekPayments = await PaymentSchedule.find({
+      userId: budget.userId,
+      dueDate: {
+        $gte: budget.weekStartDate,
+        $lte: budget.weekEndDate
+      }
+    }).populate('categoryId');
+    
+    res.json({
+      budget: {
+        _id: budget._id,
+        userId: budget.userId,
+        weekStartDate: budget.weekStartDate,
+        weekEndDate: budget.weekEndDate,
+        categories: budget.categories?.length || 0
+      },
+      totalUserPayments: allUserPayments.length,
+      linkedPayments: linkedPayments.length,
+      weekPayments: weekPayments.length,
+      weekPaymentDetails: weekPayments.map(p => ({
+        _id: p._id,
+        name: p.name,
+        amount: p.amount,
+        dueDate: p.dueDate,
+        categoryId: p.categoryId?._id,
+        categoryName: p.categoryId?.name,
+        status: p.status
+      })),
+      recentPayments: allUserPayments.slice(0, 5).map(p => ({
+        name: p.name,
+        dueDate: p.dueDate,
+        categoryName: p.categoryId?.name
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Fix payment links for a budget
+router.post('/:budgetId/fix-payment-links', auth, async (req, res) => {
+  try {
+    const { budgetId } = req.params;
+    
+    const budget = await WeeklyBudget.findById(budgetId);
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Check access
+    let hasAccess = budget.userId.toString() === req.user._id.toString();
+    if (!hasAccess && budget.householdId && budget.isSharedWithHousehold) {
+      const Household = require('../models/Household');
+      const household = await Household.findOne({
+        _id: budget.householdId,
+        $or: [
+          { createdBy: req.user._id },
+          { 'members.user': req.user._id }
+        ]
+      });
+      hasAccess = !!household;
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Get all payment IDs from the budget categories
+    const paymentIds = [];
+    budget.categories.forEach(cat => {
+      cat.payments.forEach(p => {
+        if (p._id || p.paymentScheduleId) {
+          paymentIds.push(p.paymentScheduleId || p._id);
+        }
+      });
+    });
+    
+    console.log(`Fixing links for ${paymentIds.length} payments`);
+    
+    // Update PaymentSchedule to link to this budget and household
+    const updateData = { weeklyBudgetId: budget._id };
+    if (budget.householdId && budget.isSharedWithHousehold) {
+      updateData.householdId = budget.householdId;
+    }
+    
+    const result = await PaymentSchedule.updateMany(
+      {
+        _id: { $in: paymentIds },
+        $or: [
+          { weeklyBudgetId: { $exists: false } },
+          { weeklyBudgetId: null }
+        ]
+      },
+      {
+        $set: updateData
+      }
+    );
+    
+    // Also fix householdId for payments that already have weeklyBudgetId
+    if (budget.householdId && budget.isSharedWithHousehold) {
+      const householdResult = await PaymentSchedule.updateMany(
+        {
+          _id: { $in: paymentIds },
+          weeklyBudgetId: budget._id,
+          $or: [
+            { householdId: { $exists: false } },
+            { householdId: null }
+          ]
+        },
+        {
+          $set: { householdId: budget.householdId }
+        }
+      );
+      
+      console.log(`Updated householdId for ${householdResult.modifiedCount} payments`);
+    }
+    
+    res.json({
+      message: 'Payment links fixed',
+      paymentsInBudget: paymentIds.length,
+      paymentsUpdated: result.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error fixing payment links:', error);
+    res.status(500).json({ error: 'Failed to fix payment links' });
+  }
+});
+
+// Debug payment sync status
+router.get('/:budgetId/debug-sync', auth, async (req, res) => {
+  try {
+    const { budgetId } = req.params;
+    
+    const budget = await WeeklyBudget.findById(budgetId);
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Get all payment IDs from budget
+    const budgetPaymentIds = [];
+    budget.categories.forEach(cat => {
+      cat.payments.forEach(p => {
+        budgetPaymentIds.push({
+          name: p.name,
+          _id: p._id?.toString(),
+          paymentScheduleId: p.paymentScheduleId?.toString(),
+          status: p.status
+        });
+      });
+    });
+    
+    // Check PaymentSchedule documents
+    const paymentSchedules = await PaymentSchedule.find({
+      _id: { $in: budgetPaymentIds.map(p => p.paymentScheduleId || p._id) }
+    });
+    
+    const paymentStatus = paymentSchedules.map(ps => ({
+      _id: ps._id.toString(),
+      name: ps.name,
+      status: ps.status,
+      weeklyBudgetId: ps.weeklyBudgetId?.toString(),
+      hasCorrectBudgetId: ps.weeklyBudgetId?.toString() === budgetId
+    }));
+    
+    res.json({
+      budgetId: budget._id,
+      budgetPayments: budgetPaymentIds,
+      paymentScheduleStatus: paymentStatus,
+      syncIssues: paymentStatus.filter(p => !p.hasCorrectBudgetId).length
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Test endpoint to check data
+router.get('/test/household-data/:householdId', auth, async (req, res) => {
+  try {
+    const { householdId } = req.params;
+    
+    // Get all budgets
+    const allBudgets = await WeeklyBudget.find({}).select('_id userId householdId isSharedWithHousehold').limit(10);
+    
+    // Get specific household budgets
+    const householdBudgets = await WeeklyBudget.find({ householdId: householdId });
+    
+    res.json({
+      allBudgetsCount: await WeeklyBudget.countDocuments(),
+      sampleBudgets: allBudgets,
+      householdBudgetsCount: householdBudgets.length,
+      householdBudgets: householdBudgets.map(b => ({
+        _id: b._id,
+        userId: b.userId,
+        householdId: b.householdId,
+        isSharedWithHousehold: b.isSharedWithHousehold
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Fix paidBy data in budget
+router.post('/:budgetId/fix-paidby', auth, async (req, res) => {
+  try {
+    const { budgetId } = req.params;
+    
+    const budget = await WeeklyBudget.findById(budgetId);
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Check access
+    let hasAccess = budget.userId.toString() === req.user._id.toString();
+    if (!hasAccess && budget.householdId && budget.isSharedWithHousehold) {
+      const Household = require('../models/Household');
+      const household = await Household.findOne({
+        _id: budget.householdId,
+        $or: [
+          { createdBy: req.user._id },
+          { 'members.user': req.user._id }
+        ]
+      });
+      hasAccess = !!household;
+    }
+    
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const PaymentSchedule = require('../models/PaymentSchedule');
+    let fixedCount = 0;
+    
+    // Fix each payment's paidBy
+    for (let catIndex = 0; catIndex < budget.categories.length; catIndex++) {
+      const category = budget.categories[catIndex];
+      for (let payIndex = 0; payIndex < category.payments.length; payIndex++) {
+        const payment = category.payments[payIndex];
+        
+        if (payment.status === 'paid' && payment.paidBy && typeof payment.paidBy !== 'object') {
+          // Get the corresponding PaymentSchedule
+          const schedulePayment = await PaymentSchedule.findById(payment.paymentScheduleId || payment._id)
+            .populate('paidBy', 'name email');
+          
+          if (schedulePayment && schedulePayment.paidBy) {
+            // Update the payment in the budget with the populated data
+            budget.categories[catIndex].payments[payIndex].paidBy = schedulePayment.paidBy._id;
+            fixedCount++;
+            
+            console.log(`Fixed paidBy for payment: ${payment.name}`);
+          }
+        }
+      }
+    }
+    
+    if (fixedCount > 0) {
+      budget.markModified('categories');
+      await budget.save();
+    }
+    
+    // Re-fetch with proper population
+    const updatedBudget = await WeeklyBudget.findById(budgetId)
+      .populate('userId', 'name email')
+      .populate('categories.categoryId', 'name color icon')
+      .populate('categories.payments.paidBy', 'name email');
+    
+    res.json({
+      message: `Fixed ${fixedCount} payments`,
+      budget: updatedBudget
+    });
+  } catch (error) {
+    console.error('Error fixing paidBy:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Diagnostic endpoint to check paidBy data
+router.get('/:budgetId/check-paidby', auth, async (req, res) => {
+  try {
+    const { budgetId } = req.params;
+    
+    // Get budget with populated data
+    const budget = await WeeklyBudget.findById(budgetId)
+      .populate('userId', 'name email')
+      .populate('categories.categoryId', 'name')
+      .populate('categories.payments.paidBy', 'name email');
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Check payments with paidBy
+    const paymentsWithPaidBy = [];
+    budget.categories.forEach(cat => {
+      cat.payments.forEach(p => {
+        if (p.paidBy) {
+          paymentsWithPaidBy.push({
+            name: p.name,
+            status: p.status,
+            paidBy: p.paidBy,
+            paidByType: typeof p.paidBy,
+            paidByIsObject: p.paidBy && typeof p.paidBy === 'object',
+            paidByHasName: p.paidBy && p.paidBy.name ? true : false
+          });
+        }
+      });
+    });
+    
+    // Also check PaymentSchedule directly
+    const paymentIds = budget.categories.flatMap(cat => 
+      cat.payments.map(p => p.paymentScheduleId || p._id)
+    );
+    
+    const PaymentSchedule = require('../models/PaymentSchedule');
+    const schedulePayments = await PaymentSchedule.find({
+      _id: { $in: paymentIds }
+    }).populate('paidBy', 'name email');
+    
+    res.json({
+      budgetId: budget._id,
+      budgetPayments: paymentsWithPaidBy,
+      schedulePayments: schedulePayments.map(p => ({
+        name: p.name,
+        status: p.status,
+        paidBy: p.paidBy,
+        paidByType: typeof p.paidBy
+      }))
+    });
+  } catch (error) {
+    console.error('Error checking paidBy:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update payment status in weekly budget
+router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
+  try {
+    const { budgetId, paymentId } = req.params;
+    const { status, paidBy } = req.body;
+    
+    const budget = await WeeklyBudget.findOne({
+      _id: budgetId,
+      $or: [
+        { userId: req.user._id },
+        { householdId: { $in: req.user.households || [] } }
+      ]
+    });
+    
+    if (!budget) {
+      return res.status(404).json({ error: 'Budget not found' });
+    }
+    
+    // Find and update the payment in categories
+    let paymentFound = false;
+    for (const category of budget.categories) {
+      const paymentIndex = category.payments.findIndex(p => 
+        p._id.toString() === paymentId || 
+        p.paymentScheduleId?.toString() === paymentId
+      );
+      
+      if (paymentIndex !== -1) {
+        // Update payment status
+        category.payments[paymentIndex].status = status;
+        
+        // If marking as paid, set paidBy
+        if (status === 'paid' && paidBy) {
+          category.payments[paymentIndex].paidBy = paidBy;
+        }
+        
+        paymentFound = true;
+        break;
+      }
+    }
+    
+    if (!paymentFound) {
+      return res.status(404).json({ error: 'Payment not found in budget' });
+    }
+    
+    // Update remaining budget
+    budget.updateRemainingBudget();
+    await budget.save();
+    
+    // Populate and return
+    await budget.populate('categories.categoryId');
+    await budget.populate('categories.payments.paidBy', 'name email');
+    
+    res.json(budget);
+  } catch (error) {
+    console.error('Error updating payment status:', error);
+    res.status(500).json({ error: 'Failed to update payment status' });
+  }
+});
+
+module.exports = router;

@@ -267,6 +267,78 @@ router.put('/password', authMiddleware, async (req, res) => {
     }
 });
 
+// Reset all user data
+router.post('/reset-data', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { confirmPassword } = req.body;
+        
+        // Verify user password for security
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        const isValidPassword = await bcrypt.compare(confirmPassword, user.password);
+        if (!isValidPassword) {
+            return res.status(400).json({ error: 'Invalid password' });
+        }
+        
+        // Import all models we need to clear
+        const PaymentSchedule = require('../models/PaymentSchedule');
+        const Transaction = require('../models/Transaction');
+        const WeeklyBudget = require('../models/WeeklyBudget');
+        const MainBudget = require('../models/MainBudget');
+        const Notification = require('../models/Notification');
+        
+        // Delete all user data in parallel
+        await Promise.all([
+            // Delete all payment schedules
+            PaymentSchedule.deleteMany({ userId }),
+            
+            // Delete all transactions
+            Transaction.deleteMany({ userId }),
+            
+            // Delete all weekly budgets
+            WeeklyBudget.deleteMany({ userId }),
+            
+            // Delete all main budgets
+            MainBudget.deleteMany({ userId }),
+            
+            // Delete all notifications
+            Notification.deleteMany({ userId }),
+            
+            // Clear household-related data for this user
+            PaymentSchedule.deleteMany({ 
+                householdId: { $in: user.households || [] },
+                createdBy: userId 
+            }),
+            Transaction.deleteMany({ 
+                householdId: { $in: user.households || [] },
+                userId 
+            }),
+            WeeklyBudget.deleteMany({ 
+                householdId: { $in: user.households || [] },
+                userId 
+            })
+        ]);
+        
+        res.json({ 
+            message: 'All data has been reset successfully',
+            deletedCollections: [
+                'payments',
+                'transactions', 
+                'weeklyBudgets',
+                'mainBudgets',
+                'notifications'
+            ]
+        });
+    } catch (error) {
+        console.error('Reset data error:', error);
+        res.status(500).json({ error: 'Failed to reset data' });
+    }
+});
+
 // Update notification preferences
 router.put('/notifications', authMiddleware, async (req, res) => {
     try {

@@ -4,6 +4,10 @@ const { authMiddleware } = require('../middleware/auth');
 const Transaction = require('../models/Transaction');
 const Category = require('../models/Category');
 const Budget = require('../models/Budget');
+const PaymentSchedule = require('../models/PaymentSchedule');
+const MainBudget = require('../models/MainBudget');
+const WeeklyBudget = require('../models/WeeklyBudget');
+const { getPaymentsAsTransactions, getAllBudgetData, aggregateAllFinancialData } = require('./analytics-adapter');
 
 const router = express.Router();
 
@@ -18,31 +22,100 @@ router.get('/overview', authMiddleware, async (req, res) => {
         
         const userId = new mongoose.Types.ObjectId(req.userId);
         
-        // 1. Income vs Expenses Overview
-        const overviewStats = await Transaction.aggregate([
-            {
-                $match: {
-                    userId,
-                    date: { $gte: start, $lte: end }
+        // Helper function to aggregate data from both Transaction and PaymentSchedule
+        const aggregateFinancialData = async (match, group) => {
+            // Get data from Transaction model
+            const transactionData = await Transaction.aggregate([
+                { $match: match },
+                { $group: group }
+            ]);
+            
+            // Get data from PaymentSchedule model (paid payments)
+            const paymentData = await PaymentSchedule.aggregate([
+                { 
+                    $match: {
+                        ...match,
+                        status: 'paid',
+                        paidDate: match.date // Use paidDate instead of date
+                    }
+                },
+                { $group: group }
+            ]);
+            
+            // Combine results
+            const combined = {};
+            [...transactionData, ...paymentData].forEach(item => {
+                const key = item._id || 'all';
+                if (!combined[key]) {
+                    combined[key] = { ...item };
+                } else {
+                    // Merge data
+                    combined[key].total = (combined[key].total || 0) + (item.total || 0);
+                    combined[key].count = (combined[key].count || 0) + (item.count || 0);
+                    if (item.average) {
+                        combined[key].average = ((combined[key].average || 0) + item.average) / 2;
+                    }
+                    if (item.min !== undefined) {
+                        combined[key].min = Math.min(combined[key].min || Infinity, item.min);
+                    }
+                    if (item.max !== undefined) {
+                        combined[key].max = Math.max(combined[key].max || -Infinity, item.max);
+                    }
                 }
+            });
+            
+            return Object.values(combined);
+        };
+        
+        // 1. Income vs Expenses Overview
+        const overviewStats = await aggregateFinancialData(
+            {
+                userId,
+                date: { $gte: start, $lte: end }
             },
             {
-                $group: {
-                    _id: '$type',
-                    total: { $sum: '$amount' },
-                    count: { $sum: 1 },
-                    average: { $avg: '$amount' },
-                    min: { $min: '$amount' },
-                    max: { $max: '$amount' }
-                }
+                _id: '$type',
+                total: { $sum: '$amount' },
+                count: { $sum: 1 },
+                average: { $avg: '$amount' },
+                min: { $min: '$amount' },
+                max: { $max: '$amount' }
             }
-        ]);
+        );
         
         // 2. Monthly/Weekly/Daily Trends
         const trendData = await getTrendData(userId, start, end, period);
         
-        // 3. Category Analysis
-        const categoryAnalysis = await Transaction.aggregate([
+        // 3. Category Analysis - including data from all sources
+        const allFinancialData = await aggregateAllFinancialData(userId, start, end, 'type');
+        
+        // Get category breakdown
+        const categoryData = await aggregateAllFinancialData(userId, start, end, item => 
+            `${item.categoryId?._id || 'uncategorized'}_${item.type}`
+        );
+        
+        const categoryAnalysis = [];
+        for (const key in categoryData) {
+            const [categoryId, type] = key.split('_');
+            if (categoryId !== 'uncategorized') {
+                const category = await Category.findById(categoryId);
+                if (category) {
+                    categoryAnalysis.push({
+                        categoryId: category._id,
+                        categoryName: category.name,
+                        categoryColor: category.color,
+                        categoryIcon: category.icon,
+                        type: type,
+                        total: categoryData[key].total,
+                        count: categoryData[key].count,
+                        average: categoryData[key].average
+                    });
+                }
+            }
+        }
+        
+        // Legacy category analysis for comparison
+        const legacyCategoryAnalysis = await Transaction.aggregate([
             {
                 $match: {
                     userId,
@@ -88,22 +161,26 @@ router.get('/overview', authMiddleware, async (req, res) => {
             }
         ]);
         
-        // 4. Top Transactions
-        const topTransactions = await Transaction.find({
+        // 4. Top Transactions - including payments
+        const transactions = await Transaction.find({
             userId,
             date: { $gte: start, $lte: end }
-        })
-            .populate('categoryId')
-            .sort({ amount: -1 })
-            .limit(10);
+        }).populate('categoryId');
+        
+        const payments = await getPaymentsAsTransactions(userId, start, end);
+        
+        // Combine and sort all transactions
+        const allTransactions = [...transactions, ...payments]
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 10);
         
         // 5. Savings Rate
         const incomeTotal = overviewStats.find(s => s._id === 'income')?.total || 0;
         const expenseTotal = overviewStats.find(s => s._id === 'expense')?.total || 0;
         const savingsRate = incomeTotal > 0 ? ((incomeTotal - expenseTotal) / incomeTotal * 100) : 0;
         
-        // 6. Budget Performance
-        const budgetPerformance = await getBudgetPerformance(userId, start, end);
+        // 6. Budget Performance - from all budget types
+        const budgetPerformance = await getAllBudgetData(userId, start, end);
         
         // 7. Day of Week Analysis
         const dayOfWeekAnalysis = await Transaction.aggregate([
@@ -141,7 +218,7 @@ router.get('/overview', authMiddleware, async (req, res) => {
             },
             trends: trendData,
             categoryBreakdown: categoryAnalysis,
-            topTransactions: topTransactions.map(t => ({
+            topTransactions: allTransactions.map(t => ({
                 id: t._id,
                 amount: t.amount,
                 type: t.type,
@@ -339,7 +416,7 @@ router.get('/insights', authMiddleware, async (req, res) => {
     }
 });
 
-// Helper function to get trend data
+// Helper function to get trend data from both Transaction and PaymentSchedule
 async function getTrendData(userId, start, end, period) {
     let groupBy;
     
@@ -419,15 +496,29 @@ function formatTrendData(data, period) {
     return Object.values(formatted).sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// Helper function to get budget performance
+// Helper function to get budget performance from all budget types
 async function getBudgetPerformance(userId, start, end) {
-    const budgets = await Budget.find({
+    // Get old Budget model data
+    const oldBudgets = await Budget.find({
         userId,
         $or: [
             { startDate: { $lte: end }, endDate: { $gte: start } },
             { startDate: { $gte: start, $lte: end } }
         ]
     }).populate('categoryId');
+    
+    // Get MainBudget data
+    const mainBudgets = await MainBudget.find({
+        userId,
+        createdAt: { $lte: end }
+    }).populate('categories.categoryId');
+    
+    // Get WeeklyBudget data
+    const weeklyBudgets = await WeeklyBudget.find({
+        userId,
+        weekStartDate: { $lte: end },
+        weekEndDate: { $gte: start }
+    }).populate('categories.categoryId');
     
     const performance = await Promise.all(
         budgets.map(async (budget) => {

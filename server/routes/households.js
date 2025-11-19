@@ -987,6 +987,9 @@ router.get('/:id/analytics', authMiddleware, async (req, res) => {
 router.put('/:id/members/:memberId/permissions', authMiddleware, async (req, res) => {
     try {
         const { permissions } = req.body;
+        console.log('Updating permissions for member:', req.params.memberId);
+        console.log('New permissions:', permissions);
+        
         const household = await Household.findById(req.params.id);
         
         if (!household) {
@@ -994,17 +997,22 @@ router.put('/:id/members/:memberId/permissions', authMiddleware, async (req, res
         }
         
         // Check if user has permission to manage members
-        if (!household.hasPermission(req.userId, 'canInviteMembers')) {
+        const userRole = household.getMemberRole(req.userId);
+        console.log('User role:', userRole, 'User ID:', req.userId);
+        
+        if (userRole !== 'owner' && userRole !== 'admin') {
             return res.status(403).json({ error: 'Not authorized to manage members' });
         }
         
         // Find and update member
         const memberIndex = household.members.findIndex(m => {
             const memberUserId = m.user._id ? m.user._id.toString() : m.user.toString();
+            console.log('Comparing:', memberUserId, 'with:', req.params.memberId);
             return memberUserId === req.params.memberId;
         });
         
         if (memberIndex === -1) {
+            console.log('Member not found in household members');
             return res.status(404).json({ error: 'Member not found' });
         }
         
@@ -1013,12 +1021,18 @@ router.put('/:id/members/:memberId/permissions', authMiddleware, async (req, res
             return res.status(400).json({ error: 'Cannot change owner permissions' });
         }
         
+        // Update permissions
         household.members[memberIndex].permissions = {
             ...household.members[memberIndex].permissions,
             ...permissions
         };
         
+        console.log('Updated member permissions:', household.members[memberIndex].permissions);
+        
         await household.save();
+        
+        // Populate the members before sending response
+        await household.populate('createdBy members.user');
         
         // Emit socket event
         const io = getIo();
@@ -1027,7 +1041,10 @@ router.put('/:id/members/:memberId/permissions', authMiddleware, async (req, res
             permissions
         });
         
-        res.json({ message: 'Permissions updated successfully' });
+        res.json({ 
+            message: 'Permissions updated successfully',
+            household 
+        });
     } catch (error) {
         console.error('Update member permissions error:', error);
         res.status(500).json({ error: 'Failed to update permissions' });
@@ -1099,24 +1116,32 @@ router.delete('/:id/members/:memberId', authMiddleware, async (req, res) => {
 router.put('/:id/settings', authMiddleware, async (req, res) => {
     try {
         const { name, description, settings } = req.body;
+        console.log('Updating household settings:', { name, description, settings });
+        
         const household = await Household.findById(req.params.id);
         
         if (!household) {
             return res.status(404).json({ error: 'Household not found' });
         }
         
-        // Only owner can update settings
+        // Check user role - both owner and admin can update settings
         const userRole = household.getMemberRole(req.userId);
-        if (userRole !== 'owner') {
-            return res.status(403).json({ error: 'Only owner can update household settings' });
+        console.log('User role for settings update:', userRole);
+        
+        if (userRole !== 'owner' && userRole !== 'admin') {
+            return res.status(403).json({ error: 'Only owner or admin can update household settings' });
         }
         
         // Update fields
         if (name) household.name = name;
         if (description !== undefined) household.description = description;
-        if (settings) household.settings = { ...household.settings, ...settings };
+        if (settings) {
+            household.settings = { ...household.settings, ...settings };
+            console.log('Updated settings:', household.settings);
+        }
         
         await household.save();
+        await household.populate('createdBy members.user');
         
         // Notify all members
         const io = getIo();
@@ -1130,7 +1155,20 @@ router.put('/:id/settings', authMiddleware, async (req, res) => {
             });
         });
         
-        res.json({ message: 'Settings updated successfully', household });
+        // Also emit to the creator
+        if (household.createdBy) {
+            io.to(`user_${household.createdBy._id || household.createdBy}`).emit('household-settings-updated', {
+                household: household._id,
+                name: household.name,
+                description: household.description,
+                settings: household.settings
+            });
+        }
+        
+        res.json({ 
+            message: 'Settings updated successfully', 
+            household 
+        });
     } catch (error) {
         console.error('Update household settings error:', error);
         res.status(500).json({ error: 'Failed to update settings' });
