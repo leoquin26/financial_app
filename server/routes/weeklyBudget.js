@@ -837,9 +837,9 @@ router.patch('/:budgetId/categories', auth, async (req, res) => {
     });
     
     // Calculate default allocation per category if budget is set
-    const defaultAllocation = budget.totalBudget > 0 && categories.length > 0
-      ? Math.floor(budget.totalBudget / categories.length)
-      : 0;
+    // Set to 0 to allow unlimited payments per category
+    const defaultAllocation = 0;
+    console.log(`[weeklyBudget PATCH categories] Setting defaultAllocation to ${defaultAllocation} for flexible budgeting`);
     
     // Set new categories while preserving payments
     budget.categories = categories.map(catId => ({

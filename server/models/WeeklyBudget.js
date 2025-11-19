@@ -232,15 +232,25 @@ weeklyBudgetSchema.methods.addPaymentToCategory = function(categoryId, payment) 
     throw new Error('Category not found in budget');
   }
   
-  // Only check allocation if it's set (greater than 0)
-  // This allows categories to be used without predefined allocations
-  // Updated: Allow unlimited payments when allocation is 0
+  // TEMPORARY FIX: Disable allocation checking entirely
+  // TODO: Re-enable smart allocation checking after deployment issues are resolved
+  console.log(`[WeeklyBudget] Adding payment: ${payment.name}, amount: ${payment.amount}, category allocation: ${category.allocation || 'not set'}`);
+  console.log(`[WeeklyBudget] ALLOCATION CHECK DISABLED - Allowing all payments`);
+  
+  // Original allocation check - DISABLED for now
+  /*
   if (category.allocation > 0) {
     const totalInCategory = category.payments.reduce((sum, p) => sum + p.amount, 0);
+    console.log(`[WeeklyBudget] Category has allocation. Total in category: ${totalInCategory}, new total would be: ${totalInCategory + payment.amount}`);
+    
     if (totalInCategory + payment.amount > category.allocation) {
+      console.error(`[WeeklyBudget] Payment rejected: ${totalInCategory} + ${payment.amount} > ${category.allocation}`);
       throw new Error('Payment would exceed category allocation');
     }
+  } else {
+    console.log(`[WeeklyBudget] Category allocation is 0 or not set, allowing payment without limit`);
   }
+  */
   
   category.payments.push(payment);
   return this.save();
