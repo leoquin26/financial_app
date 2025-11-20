@@ -41,6 +41,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import NotificationMenu from './NotificationMenu';
 import FloatingQuickPayment from './FloatingQuickPayment';
+import PWAInstallPrompt from './PWAInstallPrompt';
+import OfflineIndicator from './OfflineIndicator';
 import { useQuery } from '@tanstack/react-query';
 import { axiosInstance as axios } from '../config/api';
 
@@ -272,6 +274,12 @@ const Layout: React.FC = () => {
           position={userSettings?.preferences?.floatingButtonPosition || 'bottom-right'}
         />
       )}
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
+      
+      {/* Offline Indicator */}
+      <OfflineIndicator />
     </Box>
   );
 };

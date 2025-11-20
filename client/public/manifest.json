@@ -1,25 +1,42 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "FinanceApp",
+  "name": "Financial Management App",
+  "description": "Track expenses, manage budgets, and achieve your financial goals",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
-      "src": "logo192.png",
+      "src": "icon-512.png",
       "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#7C3AED",
+  "background_color": "#1A1A1A",
+  "orientation": "portrait",
+  "categories": ["finance", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Quick Payment",
+      "short_name": "Payment",
+      "description": "Add a quick payment",
+      "url": "/transactions?action=quick-payment",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Budget",
+      "short_name": "Budget",
+      "description": "View current budget",
+      "url": "/budgets",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    }
+  ]
 }

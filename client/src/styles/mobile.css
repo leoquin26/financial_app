@@ -1,0 +1,94 @@
+/* Mobile-specific styles for better PWA experience */
+
+/* Use CSS custom property for viewport height */
+.mobile-full-height {
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+}
+
+/* Prevent text selection on UI elements */
+.MuiButton-root,
+.MuiIconButton-root,
+.MuiTab-root {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Improve touch targets for mobile */
+@media (max-width: 600px) {
+  .MuiIconButton-root {
+    padding: 12px;
+  }
+  
+  .MuiButton-root {
+    min-height: 48px;
+  }
+  
+  .MuiTab-root {
+    min-height: 48px;
+  }
+}
+
+/* Safe area insets for notched devices */
+.MuiAppBar-root {
+  padding-top: env(safe-area-inset-top);
+}
+
+.MuiDrawer-paper {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Bottom navigation safe area */
+.bottom-navigation {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Smooth scrolling */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent bounce scrolling on iOS */
+body {
+  position: fixed;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+#root {
+  overflow: auto;
+  height: 100%;
+}
+
+/* Loading spinner for PWA */
+.pwa-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--background-color, #1a1a1a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+/* Offline indicator */
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #f44336;
+  color: white;
+  padding: 8px;
+  text-align: center;
+  z-index: 9999;
+  font-size: 14px;
+}

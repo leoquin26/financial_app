@@ -1,0 +1,5 @@
+<!-- This is a placeholder. Replace with actual 192x192 icon -->
+<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
+  <rect width="192" height="192" fill="#7C3AED"/>
+  <text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="white" font-size="120" font-family="Arial">$</text>
+</svg>
