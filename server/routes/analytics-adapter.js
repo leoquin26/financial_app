@@ -9,18 +9,24 @@ const MainBudget = require('../models/MainBudget');
 
 // Convert WeeklyBudget payments to transaction-like format for analytics
 async function getPaymentsAsTransactions(userId, startDate, endDate) {
+    console.log('[Analytics Adapter] Getting payments as transactions:', { userId, startDate, endDate });
+    
     const weeklyBudgets = await WeeklyBudget.find({
         userId,
         weekStartDate: { $lte: endDate },
         weekEndDate: { $gte: startDate }
     }).populate('categories.categoryId');
 
+    console.log('[Analytics Adapter] Found weekly budgets:', weeklyBudgets.length);
+    
     const transactions = [];
 
     for (const budget of weeklyBudgets) {
         for (const category of budget.categories) {
             for (const payment of category.payments) {
-                if (payment.status === 'paid' && payment.scheduledDate >= startDate && payment.scheduledDate <= endDate) {
+                // Check if payment is paid and the paid date (or scheduled date if no paid date) is within range
+                const paymentDate = payment.paidDate || payment.scheduledDate;
+                if (payment.status === 'paid' && paymentDate >= startDate && paymentDate <= endDate) {
                     transactions.push({
                         _id: payment._id,
                         userId: budget.userId,
@@ -28,7 +34,7 @@ async function getPaymentsAsTransactions(userId, startDate, endDate) {
                         type: 'expense',
                         categoryId: category.categoryId,
                         description: payment.name,
-                        date: payment.scheduledDate,
+                        date: paymentDate,
                         paidDate: payment.paidDate || payment.scheduledDate,
                         paidBy: payment.paidBy,
                         status: payment.status
@@ -38,12 +44,16 @@ async function getPaymentsAsTransactions(userId, startDate, endDate) {
         }
     }
 
+    console.log('[Analytics Adapter] Budget payment transactions:', transactions.length);
+
     // Also get PaymentSchedule data
     const scheduledPayments = await PaymentSchedule.find({
         userId,
         status: 'paid',
         paidDate: { $gte: startDate, $lte: endDate }
     }).populate('categoryId');
+
+    console.log('[Analytics Adapter] Found scheduled payments:', scheduledPayments.length);
 
     for (const payment of scheduledPayments) {
         transactions.push({
@@ -60,6 +70,7 @@ async function getPaymentsAsTransactions(userId, startDate, endDate) {
         });
     }
 
+    console.log('[Analytics Adapter] Total payment transactions:', transactions.length);
     return transactions;
 }
 

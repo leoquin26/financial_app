@@ -68,20 +68,17 @@ router.get('/overview', authMiddleware, async (req, res) => {
         };
         
         // 1. Income vs Expenses Overview
-        const overviewStats = await aggregateFinancialData(
-            {
-                userId,
-                date: { $gte: start, $lte: end }
-            },
-            {
-                _id: '$type',
-                total: { $sum: '$amount' },
-                count: { $sum: 1 },
-                average: { $avg: '$amount' },
-                min: { $min: '$amount' },
-                max: { $max: '$amount' }
-            }
-        );
+        // Get overview stats from aggregated data (includes budget payments)
+        const allFinancialOverview = await aggregateAllFinancialData(userId, start, end, 'type');
+        
+        const overviewStats = Object.keys(allFinancialOverview).map(type => ({
+            _id: type,
+            total: allFinancialOverview[type].total,
+            count: allFinancialOverview[type].count,
+            average: allFinancialOverview[type].average,
+            min: Math.min(...allFinancialOverview[type].items.map(item => item.amount)),
+            max: Math.max(...allFinancialOverview[type].items.map(item => item.amount))
+        }));
         
         // 2. Monthly/Weekly/Daily Trends
         const trendData = await getTrendData(userId, start, end, period);
@@ -113,6 +110,8 @@ router.get('/overview', authMiddleware, async (req, res) => {
                 }
             }
         }
+        
+        console.log('[Analytics] Overview stats:', overviewStats);
         
         // Legacy category analysis for comparison
         const legacyCategoryAnalysis = await Transaction.aggregate([
