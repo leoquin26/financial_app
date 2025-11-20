@@ -46,8 +46,39 @@ router.get('/summary', authMiddleware, async (req, res) => {
         
         // Get payments from budget system for current month
         const budgetPayments = await getPaymentsAsTransactions(req.userId, startOfMonth, endOfMonth);
-        const budgetExpenses = budgetPayments.reduce((sum, payment) => sum + payment.amount, 0);
-        console.log(`[Dashboard] Found ${budgetPayments.length} budget payments totaling ${budgetExpenses}`);
+        
+        // Get all transactions that are linked to budget payments to avoid double counting
+        const WeeklyBudget = require('../models/WeeklyBudget');
+        const linkedTransactionIds = new Set();
+        
+        // Find all weekly budgets for the month
+        const weeklyBudgets = await WeeklyBudget.find({
+            userId: req.userId,
+            $or: [
+                { weekStartDate: { $gte: startOfMonth, $lte: endOfMonth } },
+                { weekEndDate: { $gte: startOfMonth, $lte: endOfMonth } }
+            ]
+        });
+        
+        // Collect all transaction IDs that are linked to budget payments
+        weeklyBudgets.forEach(budget => {
+            budget.categories.forEach(category => {
+                category.payments.forEach(payment => {
+                    if (payment.transactionId) {
+                        linkedTransactionIds.add(payment.transactionId.toString());
+                    }
+                });
+            });
+        });
+        
+        // Filter budget payments to only include those NOT already counted in transactions
+        const uniqueBudgetPayments = budgetPayments.filter(payment => {
+            // If payment has a transactionId, it's already counted in transactions
+            return !payment.transactionId || !linkedTransactionIds.has(payment.transactionId.toString());
+        });
+        
+        const budgetExpenses = uniqueBudgetPayments.reduce((sum, payment) => sum + payment.amount, 0);
+        console.log(`[Dashboard] Found ${budgetPayments.length} budget payments (${uniqueBudgetPayments.length} unique) totaling ${budgetExpenses}`);
         
         // Get previous month transactions for comparison
         const prevMonthStats = await Transaction.aggregate([
@@ -70,9 +101,34 @@ router.get('/summary', authMiddleware, async (req, res) => {
         
         // Get payments from budget system for previous month
         const prevBudgetPayments = await getPaymentsAsTransactions(req.userId, startOfPrevMonth, endOfPrevMonth);
-        const prevBudgetExpenses = prevBudgetPayments.reduce((sum, payment) => sum + payment.amount, 0);
         
-        // Extract totals (combine transactions + budget payments)
+        // Same deduplication for previous month
+        const prevWeeklyBudgets = await WeeklyBudget.find({
+            userId: req.userId,
+            $or: [
+                { weekStartDate: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } },
+                { weekEndDate: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } }
+            ]
+        });
+        
+        const prevLinkedTransactionIds = new Set();
+        prevWeeklyBudgets.forEach(budget => {
+            budget.categories.forEach(category => {
+                category.payments.forEach(payment => {
+                    if (payment.transactionId) {
+                        prevLinkedTransactionIds.add(payment.transactionId.toString());
+                    }
+                });
+            });
+        });
+        
+        const prevUniqueBudgetPayments = prevBudgetPayments.filter(payment => {
+            return !payment.transactionId || !prevLinkedTransactionIds.has(payment.transactionId.toString());
+        });
+        
+        const prevBudgetExpenses = prevUniqueBudgetPayments.reduce((sum, payment) => sum + payment.amount, 0);
+        
+        // Extract totals (combine transactions + budget payments, avoiding duplicates)
         const currentIncome = currentMonthStats.find(s => s._id === 'income')?.total || 0;
         const currentExpenses = (currentMonthStats.find(s => s._id === 'expense')?.total || 0) + budgetExpenses;
         const prevIncome = prevMonthStats.find(s => s._id === 'income')?.total || 0;
@@ -144,8 +200,8 @@ router.get('/summary', authMiddleware, async (req, res) => {
             });
         }
         
-        // Add budget payment expenses
-        for (const payment of budgetPayments) {
+        // Add budget payment expenses (only unique ones not already in transactions)
+        for (const payment of uniqueBudgetPayments) {
             if (payment.categoryId) {
                 const catId = payment.categoryId._id.toString();
                 if (categoryExpenseMap.has(catId)) {
