@@ -306,6 +306,10 @@ const PaymentScheduleComponent: React.FC = () => {
   // Group payments by date first
   const paymentsByDate: { [key: string]: PaymentSchedule[] } = {};
   payments.forEach((payment: PaymentSchedule) => {
+    // Skip payments that come from weekly budgets to avoid duplicates
+    if (payment.fromWeeklyBudget) {
+      return;
+    }
     const dateKey = payment.dueDate.split('T')[0];
     if (!paymentsByDate[dateKey]) {
       paymentsByDate[dateKey] = [];

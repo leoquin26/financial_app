@@ -153,12 +153,12 @@ const PaymentScheduleImproved: React.FC = () => {
   const weekEnd = endOfWeek(selectedWeek, { weekStartsOn: 1 });
 
   const { data: payments = [], isLoading, refetch } = useQuery({
-    queryKey: ['payments', 'scheduled', weekStart.toISOString()],
+    queryKey: ['payments', weekStart.toISOString()],
     queryFn: async () => {
-      const response = await axios.get('/api/payments/scheduled', {
+      const response = await axios.get('/api/payments', {
         params: {
-          startDate: weekStart.toISOString(),
-          endDate: weekEnd.toISOString(),
+          from: format(weekStart, 'yyyy-MM-dd'),
+          to: format(weekEnd, 'yyyy-MM-dd')
         },
       });
       return response.data;
@@ -175,7 +175,8 @@ const PaymentScheduleImproved: React.FC = () => {
           endDate: weekEnd.toISOString(),
         },
       });
-      return response.data.budgets || [];
+      console.log('Weekly budgets response:', response.data);
+      return response.data || [];
     },
   });
 
@@ -232,9 +233,40 @@ const PaymentScheduleImproved: React.FC = () => {
 
   // Transform payments to calendar events
   const calendarEvents: CalendarEvent[] = [];
+  const processedPaymentIds = new Set<string>();
 
-  // Process standalone payments
+  // Debug logging
+  console.log('Payments data:', payments);
+  console.log('Weekly budgets data:', weeklyBudgets);
+  console.log('Payments with weeklyBudgetId:', payments.filter((p: PaymentSchedule) => p.weeklyBudgetId));
+
+  // Process weekly budget payments first to mark them as processed
+  weeklyBudgets.forEach((budget: any) => {
+    if (budget.categories && budget.categories.length > 0) {
+      budget.categories.forEach((category: any) => {
+        if (category.payments && category.payments.length > 0) {
+          category.payments.forEach((payment: any) => {
+            const paymentId = payment._id || payment.paymentScheduleId;
+            processedPaymentIds.add(paymentId);
+          });
+        }
+      });
+    }
+  });
+
+  // Process standalone payments (skip if already in weekly budget)
   payments.forEach((payment: PaymentSchedule) => {
+    // Skip if this payment was already processed from weekly budget
+    if (processedPaymentIds.has(payment._id)) {
+      return;
+    }
+    
+    // Also skip if this payment has a weeklyBudgetId (it belongs to a budget)
+    if (payment.weeklyBudgetId) {
+      console.log('Skipping payment with weeklyBudgetId:', payment.name, payment.weeklyBudgetId);
+      return;
+    }
+
     const eventDate = parseISO(payment.dueDate);
     let backgroundColor = payment.categoryId.color;
     let borderColor = payment.categoryId.color;
@@ -250,7 +282,7 @@ const PaymentScheduleImproved: React.FC = () => {
 
     calendarEvents.push({
       id: payment._id,
-      title: `${payment.name} ($${payment.amount})`,
+      title: `💰 ${payment.name} ($${payment.amount})`,
       start: eventDate.toISOString(),
       end: eventDate.toISOString(),
       backgroundColor,
@@ -312,15 +344,34 @@ const PaymentScheduleImproved: React.FC = () => {
     }
   });
 
-  // Calculate statistics
-  const allPayments = [...payments, ...calendarEvents.filter(e => e.extendedProps.payment.fromWeeklyBudget).map(e => e.extendedProps.payment)];
+  // Debug calendar events
+  console.log('Calendar events:', calendarEvents);
+  console.log('Total calendar events:', calendarEvents.length);
+
+  // Calculate statistics - only count unique payments
+  const uniquePayments: PaymentSchedule[] = [];
+  const seenPaymentIds = new Set<string>();
+  
+  // Add all calendar event payments (these are the deduplicated ones)
+  calendarEvents.forEach(event => {
+    const payment = event.extendedProps.payment;
+    if (!seenPaymentIds.has(payment._id)) {
+      seenPaymentIds.add(payment._id);
+      uniquePayments.push(payment);
+    }
+  });
+  
   const stats = {
-    total: allPayments.reduce((sum, p) => sum + p.amount, 0),
-    paid: allPayments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0),
-    pending: allPayments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0),
-    overdue: allPayments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0),
-    fromBudget: calendarEvents.filter(e => e.extendedProps.payment.fromWeeklyBudget).length
+    total: uniquePayments.reduce((sum, p) => sum + p.amount, 0),
+    paid: uniquePayments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0),
+    pending: uniquePayments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0),
+    overdue: uniquePayments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0),
+    fromBudget: uniquePayments.filter(p => p.fromWeeklyBudget || p.weeklyBudgetId).length
   };
+
+  // Debug stats after calculation
+  console.log('Stats:', stats);
+  console.log('Unique payments:', uniquePayments.length);
 
   const handleDateClick = (arg: any) => {
     setFormData(prev => ({
@@ -454,9 +505,12 @@ const PaymentScheduleImproved: React.FC = () => {
                   <Typography color="textSecondary" variant="body2">
                     Total
                   </Typography>
-                  <Typography variant="h5" fontWeight="bold">
-                    ${stats.total.toFixed(2)}
-                  </Typography>
+                <Typography variant="h5" fontWeight="bold">
+                  ${stats.total.toFixed(2)}
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  {uniquePayments.length} events
+                </Typography>
                 </Box>
                 <MoneyIcon color="primary" fontSize="large" />
               </Box>
@@ -556,11 +610,19 @@ const PaymentScheduleImproved: React.FC = () => {
                 },
                 '& .fc-event': {
                   cursor: 'pointer',
-                  padding: '2px 4px',
-                  borderRadius: '4px',
-                  fontSize: '0.85em',
+                  padding: '4px 6px',
+                  borderRadius: '6px',
+                  fontSize: '0.9em',
                   fontWeight: 500,
                   marginBottom: '2px',
+                  border: 'none',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                },
+                '& .fc-event-main': {
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
                 },
                 '& .fc-event-title': {
                   overflow: 'hidden',
@@ -717,11 +779,11 @@ const PaymentScheduleImproved: React.FC = () => {
                               <Typography variant="body2" color="textSecondary">
                                 {payment.categoryId.name} • Due: {format(parseISO(payment.dueDate), 'MMM dd, yyyy')}
                               </Typography>
-                              {payment.notes && (
-                                <Typography variant="caption" color="textSecondary">
-                                  {payment.notes}
-                                </Typography>
-                              )}
+                      {payment.notes && (
+                        <Typography variant="caption" color="textSecondary" display="block">
+                          {payment.notes}
+                        </Typography>
+                      )}
                             </Box>
                           }
                         />
