@@ -379,15 +379,19 @@ const WeeklyBudgetSimplified: React.FC = () => {
   };
 
   // Handle delete payment
-  const handleDeletePayment = async (paymentId: string, categoryId: string) => {
+  const handleDeletePayment = async (paymentId: string, categoryId: string, transactionId?: string) => {
     if (!window.confirm('Are you sure you want to delete this payment?')) {
       return;
     }
 
     try {
-      await axios.delete(`/api/weekly-budget/${currentBudget._id}/payment/${paymentId}`);
+      // If this payment is from a transaction, we need to delete the transaction
+      // Otherwise the payment will just reappear
+      const deleteId = transactionId || paymentId;
+      await axios.delete(`/api/weekly-budget/${currentBudget._id}/payment/${deleteId}`);
       
       queryClient.invalidateQueries({ queryKey: ['weeklyBudget'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       toast.success('Payment deleted successfully');
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to delete payment');
@@ -956,7 +960,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
                                 </IconButton>
                                 <IconButton 
                                   size="small" 
-                                  onClick={() => handleDeletePayment(payment._id, category._id)}
+                                  onClick={() => handleDeletePayment(payment._id, category._id, payment.transactionId)}
                                   color="error"
                                   title="Delete payment"
                                 >

@@ -187,10 +187,14 @@ router.get('/current', auth, async (req, res) => {
       });
     });
 
+    console.log('Processing week transactions:', weekTransactions.length);
+    console.log('Existing transaction IDs:', Array.from(existingTransactionIds));
+    
     // Process each transaction
     weekTransactions.forEach(transaction => {
       // Skip if this transaction is already linked to a payment
       if (existingTransactionIds.has(transaction._id.toString())) {
+        console.log('Skipping transaction (already linked):', transaction._id.toString());
         return;
       }
 
@@ -342,6 +346,9 @@ router.get('/:id', auth, async (req, res) => {
       });
     });
 
+    console.log('Processing week transactions for budget ID:', weekTransactions.length);
+    console.log('Existing transaction IDs in budget:', Array.from(existingTransactionIds));
+    
     // Process each transaction
     weekTransactions.forEach(transaction => {
       // Skip if this transaction is already linked to a payment
@@ -2123,8 +2130,38 @@ router.delete('/:budgetId/payment/:paymentId', auth, async (req, res) => {
       return res.status(404).json({ error: 'Budget not found' });
     }
     
-    // Find and remove the payment from categories
+    // First, check if this is a transaction-based payment that only exists in the frontend
+    // These payments are added dynamically and don't exist in the database
+    let transactionDeleted = false;
+    
+    // Try to find a matching transaction by checking if paymentId matches a transaction ID
+    const Transaction = require('../models/Transaction');
+    try {
+      const transaction = await Transaction.findOne({
+        _id: paymentId,
+        userId: req.user._id
+      });
+      
+      if (transaction) {
+        // This is actually a transaction ID, not a payment ID
+        // Delete the transaction itself
+        await Transaction.findByIdAndDelete(paymentId);
+        transactionDeleted = true;
+        
+        return res.json({ 
+          message: 'Transaction deleted successfully',
+          deletedTransaction: true 
+        });
+      }
+    } catch (e) {
+      // paymentId might not be a valid ObjectId for transactions
+      console.log('Not a transaction ID:', paymentId);
+    }
+    
+    // If not a transaction, try to find and remove the payment from categories
     let paymentFound = false;
+    let deletedPayment = null;
+    
     for (const category of budget.categories) {
       const paymentIndex = category.payments.findIndex(p => 
         p._id.toString() === paymentId || 
@@ -2132,13 +2169,20 @@ router.delete('/:budgetId/payment/:paymentId', auth, async (req, res) => {
       );
       
       if (paymentIndex !== -1) {
+        deletedPayment = category.payments[paymentIndex];
+        
+        // If this payment has a transactionId, delete the transaction
+        if (deletedPayment.transactionId) {
+          await Transaction.findByIdAndDelete(deletedPayment.transactionId);
+        }
+        
         category.payments.splice(paymentIndex, 1);
         paymentFound = true;
         break;
       }
     }
     
-    if (!paymentFound) {
+    if (!paymentFound && !transactionDeleted) {
       return res.status(404).json({ error: 'Payment not found in budget' });
     }
     
@@ -2146,7 +2190,10 @@ router.delete('/:budgetId/payment/:paymentId', auth, async (req, res) => {
     budget.updateRemainingBudget();
     await budget.save();
     
-    res.json({ message: 'Payment deleted successfully' });
+    res.json({ 
+      message: 'Payment deleted successfully',
+      hadTransaction: !!deletedPayment?.transactionId || transactionDeleted
+    });
   } catch (error) {
     console.error('Error deleting payment:', error);
     res.status(500).json({ error: 'Failed to delete payment' });
