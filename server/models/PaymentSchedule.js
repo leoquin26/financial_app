@@ -24,6 +24,11 @@ const paymentScheduleSchema = new mongoose.Schema({
     ref: 'Category',
     required: true
   },
+  type: {
+    type: String,
+    enum: ['income', 'expense'],
+    default: 'expense' // Most payments are expenses
+  },
   dueDate: {
     type: Date,
     required: true

@@ -31,7 +31,7 @@ async function getPaymentsAsTransactions(userId, startDate, endDate) {
                         _id: payment._id,
                         userId: budget.userId,
                         amount: payment.amount,
-                        type: 'expense',
+                        type: 'expense', // Weekly budget payments are always expenses
                         categoryId: category.categoryId,
                         description: payment.name,
                         date: paymentDate,
@@ -56,11 +56,13 @@ async function getPaymentsAsTransactions(userId, startDate, endDate) {
     console.log('[Analytics Adapter] Found scheduled payments:', scheduledPayments.length);
 
     for (const payment of scheduledPayments) {
+        // Only include payments with a type (default to expense for backward compatibility)
+        const paymentType = payment.type || 'expense';
         transactions.push({
             _id: payment._id,
             userId: payment.userId,
             amount: payment.amount,
-            type: payment.type || 'expense',
+            type: paymentType,
             categoryId: payment.categoryId,
             description: payment.name,
             date: payment.paidDate,
@@ -71,6 +73,14 @@ async function getPaymentsAsTransactions(userId, startDate, endDate) {
     }
 
     console.log('[Analytics Adapter] Total payment transactions:', transactions.length);
+    
+    // Log transaction types for debugging
+    const typeBreakdown = transactions.reduce((acc, t) => {
+        acc[t.type] = (acc[t.type] || 0) + 1;
+        return acc;
+    }, {});
+    console.log('[Analytics Adapter] Transaction type breakdown:', typeBreakdown);
+    
     return transactions;
 }
 

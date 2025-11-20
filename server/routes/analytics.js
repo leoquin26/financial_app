@@ -174,8 +174,15 @@ router.get('/overview', authMiddleware, async (req, res) => {
             .slice(0, 10);
         
         // 5. Savings Rate
+        console.log('[Analytics] All financial overview:', JSON.stringify(allFinancialOverview, null, 2));
+        console.log('[Analytics] Overview stats before processing:', JSON.stringify(overviewStats, null, 2));
+        
         const incomeTotal = overviewStats.find(s => s._id === 'income')?.total || 0;
         const expenseTotal = overviewStats.find(s => s._id === 'expense')?.total || 0;
+        
+        console.log('[Analytics] Income total:', incomeTotal);
+        console.log('[Analytics] Expense total:', expenseTotal);
+        
         const savingsRate = incomeTotal > 0 ? ((incomeTotal - expenseTotal) / incomeTotal * 100) : 0;
         
         // 6. Budget Performance - from all budget types
