@@ -168,6 +168,11 @@ router.get('/settings', authMiddleware, async (req, res) => {
                 profileVisible: user.privacy?.profileVisible ?? true,
                 showEmail: user.privacy?.showEmail ?? false,
                 showStats: user.privacy?.showStats ?? true,
+            },
+            preferences: {
+                showFloatingQuickPayment: user.preferences?.showFloatingQuickPayment ?? true,
+                floatingButtonPosition: user.preferences?.floatingButtonPosition || 'bottom-right',
+                density: user.preferences?.density || 'comfortable'
             }
         });
     } catch (error) {
@@ -188,7 +193,8 @@ router.put('/profile', authMiddleware, async (req, res) => {
             language,
             timezone,
             dateFormat,
-            theme
+            theme,
+            preferences
         } = req.body;
         
         const user = await User.findById(req.userId);
@@ -222,6 +228,12 @@ router.put('/profile', authMiddleware, async (req, res) => {
         if (timezone !== undefined) user.timezone = timezone;
         if (dateFormat !== undefined) user.dateFormat = dateFormat;
         if (theme !== undefined) user.theme = theme;
+        if (preferences !== undefined) {
+            user.preferences = {
+                ...user.preferences,
+                ...preferences
+            };
+        }
         
         await user.save();
         

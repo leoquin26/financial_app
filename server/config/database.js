@@ -23,7 +23,7 @@ const connectDB = async () => {
 async function initializeDefaultData() {
   try {
     const User = require('../models/User');
-    const Category = require('../models/Category');
+    const validateDefaultCategories = require('../scripts/validateDefaultCategories');
     
     // Check if demo user exists
     let demoUser = await User.findOne({ username: 'demo' });
@@ -42,33 +42,8 @@ async function initializeDefaultData() {
       console.log('Demo user created');
     }
     
-    // Check if default categories exist
-    const categoryCount = await Category.countDocuments({ userId: null });
-    
-    if (categoryCount === 0) {
-      // Create default categories
-      const defaultCategories = [
-        // Income categories
-        { name: 'Salario', type: 'income', color: '#4CAF50', icon: '💰', userId: null },
-        { name: 'Freelance', type: 'income', color: '#8BC34A', icon: '💻', userId: null },
-        { name: 'Inversiones', type: 'income', color: '#00BCD4', icon: '📈', userId: null },
-        { name: 'Otros Ingresos', type: 'income', color: '#009688', icon: '💵', userId: null },
-        
-        // Expense categories
-        { name: 'Alimentación', type: 'expense', color: '#FF5722', icon: '🍔', userId: null },
-        { name: 'Transporte', type: 'expense', color: '#FF9800', icon: '🚗', userId: null },
-        { name: 'Vivienda', type: 'expense', color: '#795548', icon: '🏠', userId: null },
-        { name: 'Servicios', type: 'expense', color: '#607D8B', icon: '💡', userId: null },
-        { name: 'Salud', type: 'expense', color: '#E91E63', icon: '🏥', userId: null },
-        { name: 'Educación', type: 'expense', color: '#9C27B0', icon: '📚', userId: null },
-        { name: 'Entretenimiento', type: 'expense', color: '#673AB7', icon: '🎮', userId: null },
-        { name: 'Compras', type: 'expense', color: '#3F51B5', icon: '🛍️', userId: null },
-        { name: 'Otros Gastos', type: 'expense', color: '#9E9E9E', icon: '📦', userId: null }
-      ];
-      
-      await Category.insertMany(defaultCategories);
-      console.log('Default categories created');
-    }
+    // Validate and ensure all default categories exist
+    await validateDefaultCategories();
     
   } catch (error) {
     console.error('Error initializing default data:', error);

@@ -40,6 +40,9 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import NotificationMenu from './NotificationMenu';
+import FloatingQuickPayment from './FloatingQuickPayment';
+import { useQuery } from '@tanstack/react-query';
+import { axiosInstance as axios } from '../config/api';
 
 const drawerWidth = 240;
 
@@ -64,6 +67,16 @@ const Layout: React.FC = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { isConnected } = useSocket();
+
+  // Fetch user settings to check floating button preference
+  const { data: userSettings } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: async () => {
+      const response = await axios.get('/api/auth/settings');
+      return response.data;
+    },
+    enabled: !!user,
+  });
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -252,6 +265,13 @@ const Layout: React.FC = () => {
         <Toolbar />
         <Outlet />
       </Box>
+      
+      {/* Floating Quick Payment Button */}
+      {userSettings?.preferences?.showFloatingQuickPayment !== false && (
+        <FloatingQuickPayment 
+          position={userSettings?.preferences?.floatingButtonPosition || 'bottom-right'}
+        />
+      )}
     </Box>
   );
 };

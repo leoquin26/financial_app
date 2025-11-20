@@ -1,12 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { Toaster } from 'react-hot-toast';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
+import { CustomThemeProvider } from './contexts/ThemeContext';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -39,113 +39,13 @@ const queryClient = new QueryClient({
   },
 });
 
-// Create theme
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#4A90E2',
-      light: '#6BA3E5',
-      dark: '#3A7BC8',
-    },
-    secondary: {
-      main: '#50C878',
-      light: '#7FD99A',
-      dark: '#3BA55D',
-    },
-    error: {
-      main: '#FF6B6B',
-      light: '#FF9999',
-      dark: '#CC5555',
-    },
-    warning: {
-      main: '#FFD93D',
-      light: '#FFE066',
-      dark: '#CCAE31',
-    },
-    success: {
-      main: '#4CAF50',
-      light: '#7BC67E',
-      dark: '#3D8B40',
-    },
-    background: {
-      default: '#F5F7FA',
-      paper: '#FFFFFF',
-    },
-    text: {
-      primary: '#2C3E50',
-      secondary: '#7F8C8D',
-    },
-  },
-  typography: {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-    h1: {
-      fontSize: '2.5rem',
-      fontWeight: 600,
-    },
-    h2: {
-      fontSize: '2rem',
-      fontWeight: 600,
-    },
-    h3: {
-      fontSize: '1.75rem',
-      fontWeight: 600,
-    },
-    h4: {
-      fontSize: '1.5rem',
-      fontWeight: 600,
-    },
-    h5: {
-      fontSize: '1.25rem',
-      fontWeight: 600,
-    },
-    h6: {
-      fontSize: '1rem',
-      fontWeight: 600,
-    },
-  },
-  shape: {
-    borderRadius: 12,
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          borderRadius: 8,
-          padding: '10px 20px',
-          fontSize: '1rem',
-          fontWeight: 500,
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
-          },
-        },
-      },
-    },
-  },
-});
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
-          <AuthProvider>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <AuthProvider>
+          <CustomThemeProvider>
             <SocketProvider>
               <Router>
                 <Routes>
@@ -202,9 +102,9 @@ function App() {
               />
               <ToastContainer position="top-right" />
             </SocketProvider>
-          </AuthProvider>
-        </LocalizationProvider>
-      </ThemeProvider>
+          </CustomThemeProvider>
+        </AuthProvider>
+      </LocalizationProvider>
     </QueryClientProvider>
   );
 }

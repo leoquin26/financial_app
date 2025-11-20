@@ -64,6 +64,19 @@ const userSchema = new mongoose.Schema({
     showEmail: { type: Boolean, default: false },
     showStats: { type: Boolean, default: true }
   },
+  preferences: {
+    showFloatingQuickPayment: { type: Boolean, default: true },
+    floatingButtonPosition: { 
+      type: String, 
+      enum: ['bottom-right', 'bottom-left', 'top-right', 'top-left'],
+      default: 'bottom-right'
+    },
+    density: {
+      type: String,
+      enum: ['compact', 'comfortable', 'spacious'],
+      default: 'comfortable'
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { authMiddleware } = require('../middleware/auth');
 const Transaction = require('../models/Transaction');
 const Category = require('../models/Category');
@@ -7,6 +8,80 @@ const { createNotification } = require('./notifications');
 const { getIo } = require('../utils/socketManager');
 
 const router = express.Router();
+
+// Import budget models
+const WeeklyBudget = require('../models/WeeklyBudget');
+const PaymentSchedule = require('../models/PaymentSchedule');
+
+// Get current budget categories for quick transactions
+router.get('/quick-categories', authMiddleware, async (req, res) => {
+    try {
+        // First, get all user categories
+        const allCategories = await Category.find({
+            $or: [
+                { userId: null },
+                { userId: req.userId }
+            ]
+        }).sort({ name: 1 }); // Sort alphabetically
+        
+        // Get current week's budget
+        const currentBudget = await WeeklyBudget.getCurrentWeek(req.userId);
+        
+        if (!currentBudget || !currentBudget.categories || currentBudget.categories.length === 0) {
+            // If no budget, return all categories
+            return res.json({
+                hasBudget: false,
+                categories: allCategories
+            });
+        }
+
+        // Populate categories from budget
+        await currentBudget.populate('categories.categoryId');
+        
+        // Create a map of budget categories for quick lookup
+        const budgetCategoryMap = new Map();
+        currentBudget.categories.forEach(cat => {
+            const spent = cat.payments
+                .filter(p => p.status === 'paid')
+                .reduce((sum, p) => sum + p.amount, 0);
+            budgetCategoryMap.set(cat.categoryId._id.toString(), {
+                allocation: cat.allocation,
+                spent: spent,
+                remaining: cat.allocation - spent
+            });
+        });
+        
+        // Enhance all categories with budget info if available
+        const enhancedCategories = allCategories.map(cat => {
+            const budgetInfo = budgetCategoryMap.get(cat._id.toString());
+            if (budgetInfo) {
+                return {
+                    ...cat.toObject(),
+                    ...budgetInfo,
+                    inBudget: true
+                };
+            }
+            return {
+                ...cat.toObject(),
+                allocation: 0,
+                spent: 0,
+                remaining: 0,
+                inBudget: false
+            };
+        });
+
+        res.json({
+            hasBudget: true,
+            budgetId: currentBudget._id,
+            weekStart: currentBudget.weekStartDate,
+            weekEnd: currentBudget.weekEndDate,
+            categories: enhancedCategories
+        });
+    } catch (error) {
+        console.error('Get quick categories error:', error);
+        res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+});
 
 // Get all transactions for user
 router.get('/', authMiddleware, async (req, res) => {
@@ -251,6 +326,227 @@ router.post('/', authMiddleware, async (req, res) => {
     } catch (error) {
         console.error('Create transaction error:', error);
         res.status(500).json({ error: 'Failed to create transaction' });
+    }
+});
+
+// Quick transaction - links to current active budget
+router.post('/quick', authMiddleware, async (req, res) => {
+    try {
+        const { amount, description, date, paymentMethod, tags, currency } = req.body;
+        
+        // Always use the Quick Payment category
+        const quickPaymentCategory = await Category.findOne({
+            name: 'Quick Payment',
+            isSystem: true
+        });
+        
+        if (!quickPaymentCategory) {
+            return res.status(500).json({ error: 'Quick Payment category not found. Please restart the server.' });
+        }
+        
+        const categoryId = quickPaymentCategory._id;
+
+        // Validate input
+        if (!amount) {
+            return res.status(400).json({ error: 'Amount is required' });
+        }
+
+        const numAmount = parseFloat(amount);
+        if (isNaN(numAmount) || numAmount <= 0) {
+            return res.status(400).json({ error: 'Amount must be a valid number greater than 0' });
+        }
+
+        // Verify category exists
+        const category = await Category.findOne({
+            _id: categoryId,
+            $or: [
+                { userId: null },
+                { userId: req.userId }
+            ]
+        });
+
+        if (!category) {
+            return res.status(400).json({ error: 'Invalid category' });
+        }
+
+        // Get user's default currency
+        const User = require('../models/User');
+        const user = await User.findById(req.userId);
+        const transactionCurrency = currency || user.currency || 'PEN';
+
+        // Find current week's budget
+        const currentBudget = await WeeklyBudget.getCurrentWeek(req.userId);
+        
+        // If no budget exists, return a response asking if user wants to create one
+        if (!currentBudget) {
+            return res.status(200).json({ 
+                requiresBudget: true,
+                message: 'No hay presupuesto activo. ¿Deseas crear un presupuesto rápido mensual?',
+                transactionData: {
+                    amount: numAmount,
+                    categoryId,
+                    description: description || `Quick payment`,
+                    date: date || new Date(),
+                    paymentMethod: paymentMethod || 'cash',
+                    currency: transactionCurrency
+                }
+            });
+        }
+        
+        console.log('Current budget found:', {
+            id: currentBudget._id,
+            categoriesCount: currentBudget.categories?.length,
+            categoryIds: currentBudget.categories?.map(c => c.categoryId.toString())
+        });
+        
+        // Create the transaction (always expense for quick transactions)
+        const transaction = new Transaction({
+            userId: req.userId,
+            type: 'expense',
+            amount: numAmount,
+            currency: transactionCurrency,
+            categoryId,
+            description: description || `Quick payment - ${category.name}`,
+            date: date ? new Date(date) : new Date(),
+            paymentMethod: paymentMethod || 'cash',
+            tags: tags || ['quick-payment'],
+            isRecurring: false
+        });
+
+        await transaction.save();
+
+        // If we have an active budget, create a payment entry and link it
+        if (currentBudget) {
+            // Check if this category exists in the budget
+            const budgetCategory = currentBudget.categories.find(
+                cat => cat.categoryId.toString() === categoryId.toString()
+            );
+
+            console.log('Budget category search:', {
+                searchingFor: categoryId.toString(),
+                found: !!budgetCategory,
+                categoriesInBudget: currentBudget.categories.map(c => ({
+                    id: c.categoryId.toString(),
+                    name: c.categoryId.name || 'No name',
+                    allocation: c.allocation
+                }))
+            });
+
+            if (budgetCategory) {
+                // If category has 0 allocation, set it to at least the payment amount
+                if (!budgetCategory.allocation || budgetCategory.allocation === 0) {
+                    budgetCategory.allocation = numAmount;
+                    console.log('Updated category allocation to:', numAmount);
+                }
+                
+                // Create a payment entry in the budget
+                const payment = {
+                    _id: new mongoose.Types.ObjectId(), // Generate a unique ID for the payment
+                    name: description || `Quick payment`,
+                    amount: numAmount,
+                    scheduledDate: new Date(),
+                    status: 'paid',
+                    paidDate: new Date(),
+                    paidBy: req.userId,
+                    notes: `Created via quick transaction - ${transaction._id}`,
+                    transactionId: transaction._id, // Link to the transaction
+                    paymentScheduleId: null // No PaymentSchedule document for quick transactions
+                };
+
+                // Add payment to the category
+                budgetCategory.payments.push(payment);
+                
+                // Update spent amount for the category
+                const categoryAllocation = budgetCategory.allocation || 0;
+                const currentSpent = budgetCategory.payments
+                    .filter(p => p.status === 'paid')
+                    .reduce((sum, p) => sum + p.amount, 0);
+                
+                console.log('Budget category before save:', {
+                    categoryId: budgetCategory.categoryId.toString(),
+                    paymentsCount: budgetCategory.payments.length,
+                    totalSpent: currentSpent,
+                    allocation: categoryAllocation
+                });
+                
+                // Update remaining budget
+                currentBudget.updateRemainingBudget();
+                
+                // Save the budget
+                await currentBudget.save();
+                
+                console.log('Quick transaction linked to budget:', {
+                    transactionId: transaction._id,
+                    budgetId: currentBudget._id,
+                    categoryId,
+                    amount: numAmount,
+                    paymentsInCategory: budgetCategory.payments.length
+                });
+                
+                // Emit budget update event
+                const io = getIo();
+                if (io) {
+                    io.to(`user_${req.userId}`).emit('budget-updated', currentBudget);
+                }
+            } else {
+                console.log('Category not found in budget, adding it:', {
+                    categoryId: categoryId.toString(),
+                    budgetCategories: currentBudget.categories.map(c => c.categoryId.toString())
+                });
+                
+                // Add the category to the budget
+                currentBudget.categories.push({
+                    categoryId: categoryId,
+                    allocation: numAmount, // Set allocation to payment amount
+                    payments: [{
+                        _id: new mongoose.Types.ObjectId(),
+                        name: description || `Quick payment`,
+                        amount: numAmount,
+                        scheduledDate: new Date(),
+                        status: 'paid',
+                        paidDate: new Date(),
+                        paidBy: req.userId,
+                        notes: `Created via quick transaction - ${transaction._id}`,
+                        transactionId: transaction._id,
+                        paymentScheduleId: null
+                    }]
+                });
+                
+                // Update remaining budget
+                currentBudget.updateRemainingBudget();
+                
+                // Save the budget
+                await currentBudget.save();
+                
+                console.log('Added new category to budget with quick payment');
+                
+                // Emit budget update event
+                const io = getIo();
+                if (io) {
+                    io.to(`user_${req.userId}`).emit('budget-updated', currentBudget);
+                }
+            }
+        }
+
+        // Populate category for response
+        await transaction.populate('categoryId');
+
+        // Emit socket event
+        const io = getIo();
+        if (io) {
+            io.to(`user_${req.userId}`).emit('transaction-created', transaction);
+        }
+
+        res.status(201).json({
+            transaction,
+            budgetLinked: !!currentBudget,
+            message: currentBudget ? 
+                'Transaction created and linked to current budget' : 
+                'Transaction created (no active budget found)'
+        });
+    } catch (error) {
+        console.error('Quick transaction error:', error);
+        res.status(500).json({ error: 'Failed to create quick transaction' });
     }
 });
 

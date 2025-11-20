@@ -24,6 +24,17 @@ const categorySchema = new mongoose.Schema({
     ref: 'User',
     default: null // null means it's a default category
   },
+  isDefault: {
+    type: Boolean,
+    default: false
+  },
+  isSystem: {
+    type: Boolean,
+    default: false
+  },
+  description: {
+    type: String
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -271,7 +271,7 @@ weeklyBudgetSchema.statics.getCurrentWeek = async function(userId) {
     userId,
     weekStartDate: { $lte: now },
     weekEndDate: { $gte: now }
-  }).populate('allocations.categoryId categories.categoryId scheduledPayments');
+  }).populate('categories.categoryId allocations.categoryId scheduledPayments');
 };
 
 // Static method to create from template

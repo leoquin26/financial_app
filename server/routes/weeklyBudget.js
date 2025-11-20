@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { authMiddleware: auth } = require('../middleware/auth');
 const WeeklyBudget = require('../models/WeeklyBudget');
 const PaymentSchedule = require('../models/PaymentSchedule');
 const Transaction = require('../models/Transaction');
 const Category = require('../models/Category');
+const MainBudget = require('../models/MainBudget');
 
 // Helper function to generate budget insights
 async function generateBudgetInsights(userId, budget = null) {
@@ -156,21 +158,92 @@ router.get('/current', auth, async (req, res) => {
       await budget.save();
     }
 
-    // Don't recalculate spent amounts - they are maintained by the allocation status updates
-    // Just populate and return the budget as is
-    await budget.populate('allocations.categoryId');
+    // Populate categories
     await budget.populate('categories.categoryId');
+    await budget.populate('categories.payments.paidBy', 'name email');
     
-    console.log('Returning budget:', {
-      id: budget._id,
-      totalBudget: budget.totalBudget,
-      categoriesCount: budget.categories?.length || 0,
-      allocationsCount: budget.allocations?.length || 0,
-      weekStart: budget.weekStartDate,
-      weekEnd: budget.weekEndDate
+    // Fetch all expense transactions for this week
+    const weekTransactions = await Transaction.find({
+      userId: req.user._id,
+      type: 'expense',
+      date: {
+        $gte: budget.weekStartDate,
+        $lte: budget.weekEndDate
+      }
+    }).populate('categoryId');
+
+    console.log(`Found ${weekTransactions.length} expense transactions for current week`);
+
+    // Convert to plain object to modify
+    const enhancedBudget = budget.toObject();
+    
+    // Create a map of existing payment transaction IDs to avoid duplicates
+    const existingTransactionIds = new Set();
+    enhancedBudget.categories.forEach(cat => {
+      cat.payments.forEach(payment => {
+        if (payment.transactionId) {
+          existingTransactionIds.add(payment.transactionId.toString());
+        }
+      });
+    });
+
+    // Process each transaction
+    weekTransactions.forEach(transaction => {
+      // Skip if this transaction is already linked to a payment
+      if (existingTransactionIds.has(transaction._id.toString())) {
+        return;
+      }
+
+      const categoryId = transaction.categoryId._id.toString();
+      
+      // Find if category exists in budget
+      let budgetCategory = enhancedBudget.categories.find(
+        cat => cat.categoryId._id.toString() === categoryId
+      );
+
+      // If category doesn't exist, add it
+      if (!budgetCategory) {
+        budgetCategory = {
+          categoryId: transaction.categoryId,
+          allocation: 0,
+          payments: [],
+          _id: new mongoose.Types.ObjectId()
+        };
+        enhancedBudget.categories.push(budgetCategory);
+      }
+
+      // Add transaction as a payment
+      budgetCategory.payments.push({
+        _id: new mongoose.Types.ObjectId(),
+        name: transaction.description || `${transaction.categoryId.name} expense`,
+        amount: transaction.amount,
+        scheduledDate: transaction.date,
+        status: 'paid',
+        paidDate: transaction.date,
+        paidBy: req.user._id,
+        notes: `From transaction: ${transaction.paymentMethod || 'N/A'}`,
+        transactionId: transaction._id,
+        paymentScheduleId: null,
+        isFromTransaction: true
+      });
+
+      // Update allocation if it's 0
+      if (budgetCategory.allocation === 0) {
+        const totalPayments = budgetCategory.payments.reduce((sum, p) => sum + p.amount, 0);
+        budgetCategory.allocation = totalPayments;
+      }
+    });
+
+    console.log('Returning enhanced budget:', {
+      id: enhancedBudget._id,
+      totalBudget: enhancedBudget.totalBudget,
+      categoriesCount: enhancedBudget.categories?.length || 0,
+      totalPayments: enhancedBudget.categories.reduce((sum, cat) => sum + cat.payments.length, 0),
+      weekStart: enhancedBudget.weekStartDate,
+      weekEnd: enhancedBudget.weekEndDate
     });
     
-    res.json(budget);
+    res.json(enhancedBudget);
   } catch (error) {
     console.error('Error fetching current week budget:', error);
     res.status(500).json({ error: 'Failed to fetch current week budget' });
@@ -244,8 +317,90 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Weekly budget not found' });
     }
     
-    console.log('Found budget with', budget.categories.length, 'categories');
-    res.json(budget);
+    // Fetch all expense transactions for this week
+    const weekTransactions = await Transaction.find({
+      userId: req.user._id,
+      type: 'expense',
+      date: {
+        $gte: budget.weekStartDate,
+        $lte: budget.weekEndDate
+      }
+    }).populate('categoryId');
+
+    console.log(`Found ${weekTransactions.length} expense transactions for week`);
+
+    // Convert to plain object to modify
+    const enhancedBudget = budget.toObject();
+    
+    // Create a map of existing payment transaction IDs to avoid duplicates
+    const existingTransactionIds = new Set();
+    enhancedBudget.categories.forEach(cat => {
+      cat.payments.forEach(payment => {
+        if (payment.transactionId) {
+          existingTransactionIds.add(payment.transactionId.toString());
+        }
+      });
+    });
+
+    // Process each transaction
+    weekTransactions.forEach(transaction => {
+      // Skip if this transaction is already linked to a payment
+      if (existingTransactionIds.has(transaction._id.toString())) {
+        console.log('Skipping duplicate transaction:', transaction._id);
+        return;
+      }
+
+      const categoryId = transaction.categoryId._id.toString();
+      
+      // Find if category exists in budget
+      let budgetCategory = enhancedBudget.categories.find(
+        cat => cat.categoryId._id.toString() === categoryId
+      );
+
+      // If category doesn't exist, add it
+      if (!budgetCategory) {
+        console.log('Adding new category to budget:', transaction.categoryId.name);
+        budgetCategory = {
+          categoryId: transaction.categoryId,
+          allocation: 0,
+          payments: [],
+          _id: new mongoose.Types.ObjectId()
+        };
+        enhancedBudget.categories.push(budgetCategory);
+      }
+
+      // Add transaction as a payment
+      const transactionPayment = {
+        _id: new mongoose.Types.ObjectId(),
+        name: transaction.description || `${transaction.categoryId.name} expense`,
+        amount: transaction.amount,
+        scheduledDate: transaction.date,
+        status: 'paid',
+        paidDate: transaction.date,
+        paidBy: req.user._id,
+        notes: `From transaction: ${transaction.paymentMethod || 'N/A'}`,
+        transactionId: transaction._id,
+        paymentScheduleId: null,
+        isFromTransaction: true // Flag to identify these are from transactions
+      };
+      
+      budgetCategory.payments.push(transactionPayment);
+      console.log('Added transaction as payment:', transactionPayment.name);
+
+      // Update allocation if it's 0
+      if (budgetCategory.allocation === 0) {
+        const totalPayments = budgetCategory.payments.reduce((sum, p) => sum + p.amount, 0);
+        budgetCategory.allocation = totalPayments;
+      }
+    });
+
+    console.log('Enhanced budget with transactions:', {
+      id: enhancedBudget._id,
+      categoriesCount: enhancedBudget.categories.length,
+      totalPayments: enhancedBudget.categories.reduce((sum, cat) => sum + cat.payments.length, 0)
+    });
+    
+    res.json(enhancedBudget);
   } catch (error) {
     console.error('Error fetching weekly budget:', error);
     res.status(500).json({ error: 'Failed to fetch weekly budget' });
@@ -1995,6 +2150,93 @@ router.delete('/:budgetId/payment/:paymentId', auth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting payment:', error);
     res.status(500).json({ error: 'Failed to delete payment' });
+  }
+});
+
+// Create quick monthly budget
+router.post('/quick-monthly', auth, async (req, res) => {
+  try {
+    const { monthlyIncome } = req.body;
+    
+    // Get current week dates
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    
+    // Check if weekly budget already exists
+    let weeklyBudget = await WeeklyBudget.findOne({
+      userId: req.user._id,
+      weekStartDate: { $lte: weekEnd },
+      weekEndDate: { $gte: weekStart }
+    });
+    
+    if (!weeklyBudget) {
+      // Get all expense categories
+      const categories = await Category.find({
+        $or: [
+          { userId: null, type: 'expense' },
+          { userId: req.user._id, type: 'expense' }
+        ]
+      });
+      
+      // Create categories array for the budget
+      const budgetCategories = [];
+      
+      // Add Quick Payment category with default allocation
+      const quickPaymentCategory = categories.find(c => c.name === 'Quick Payment');
+      if (quickPaymentCategory) {
+        budgetCategories.push({
+          categoryId: quickPaymentCategory._id,
+          allocation: 125, // 500 monthly / 4 weeks
+          payments: []
+        });
+      }
+      
+      // Add other essential categories
+      const essentialCategories = ['Alimentación', 'Transporte', 'Otros Gastos'];
+      categories.forEach(category => {
+        if (essentialCategories.includes(category.name)) {
+          budgetCategories.push({
+            categoryId: category._id,
+            allocation: 75, // 300 monthly / 4 weeks
+            payments: []
+          });
+        }
+      });
+      
+      // Calculate total budget
+      const totalBudget = budgetCategories.reduce((sum, cat) => sum + cat.allocation, 0);
+      
+      // Create the weekly budget
+      weeklyBudget = new WeeklyBudget({
+        userId: req.user._id,
+        weekStartDate: weekStart,
+        weekEndDate: weekEnd,
+        totalBudget: totalBudget,
+        remainingBudget: totalBudget,
+        categories: budgetCategories
+      });
+      
+      await weeklyBudget.save();
+      
+      // Populate categories for response
+      await weeklyBudget.populate('categories.categoryId');
+    }
+    
+    res.json({
+      success: true,
+      message: 'Presupuesto rápido creado exitosamente',
+      weeklyBudget
+    });
+    
+  } catch (error) {
+    console.error('Error creating quick monthly budget:', error);
+    res.status(500).json({ error: 'Failed to create quick monthly budget' });
   }
 });
 

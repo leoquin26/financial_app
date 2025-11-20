@@ -58,6 +58,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import InlinePaymentCreator from '../components/InlinePaymentCreator';
 import PaymentStatusDropdown from '../components/PaymentStatusDropdown';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
 
 interface Category {
   _id: string;
@@ -87,6 +88,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
   const { weekId } = useParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { socket } = useSocket();
   const [totalBudget, setTotalBudget] = useState<string>('');
   const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -107,7 +109,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
   const currentWeekEnd = endOfWeek(new Date());
 
   // Fetch current week's budget or specific budget by ID
-  const { data: currentBudget, isLoading } = useQuery({
+  const { data: currentBudget, isLoading, refetch: refetchBudget } = useQuery({
     queryKey: ['weeklyBudget', weekId || 'current'],
     queryFn: async () => {
       try {
@@ -232,7 +234,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           payments: categoryPayments,
           totalAmount,
         };
-      }).filter(cat => cat.totalAmount > 0 || expandedCategories.has(cat.category._id));
+      }).filter(cat => cat !== null); // Only filter out null categories
 
   // Calculate totals from budget data if available
   const totalScheduled = currentBudget?.categories 
@@ -295,6 +297,37 @@ const WeeklyBudgetSimplified: React.FC = () => {
       }
     }
   }, [currentBudget]);
+
+  // Socket listeners for budget updates
+  React.useEffect(() => {
+    if (!socket) return;
+
+    const handleBudgetUpdate = (updatedBudget: any) => {
+      console.log('Received budget update:', updatedBudget);
+      // If it's the same budget, refetch
+      if (updatedBudget._id === currentBudget?._id) {
+        refetchBudget();
+      }
+    };
+
+    const handleTransactionUpdate = () => {
+      console.log('Transaction updated, refetching budget');
+      // Refetch budget to include new transactions
+      refetchBudget();
+    };
+
+    socket.on('budget-updated', handleBudgetUpdate);
+    socket.on('transaction-created', handleTransactionUpdate);
+    socket.on('transaction-updated', handleTransactionUpdate);
+    socket.on('transaction-deleted', handleTransactionUpdate);
+
+    return () => {
+      socket.off('budget-updated', handleBudgetUpdate);
+      socket.off('transaction-created', handleTransactionUpdate);
+      socket.off('transaction-updated', handleTransactionUpdate);
+      socket.off('transaction-deleted', handleTransactionUpdate);
+    };
+  }, [socket, currentBudget?._id, refetchBudget]);
 
   const handlePaymentAdded = () => {
     queryClient.invalidateQueries({ queryKey: ['payments', 'weekly'] });

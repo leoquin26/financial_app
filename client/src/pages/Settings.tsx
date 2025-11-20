@@ -64,6 +64,7 @@ import {
   CalendarMonth as CalendarIcon,
   AccessTime as TimeIcon,
   Public as PublicIcon,
+  FlashOn as FlashOnIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
@@ -72,6 +73,7 @@ import toast from 'react-hot-toast';
 import { axiosInstance as axios } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
+import { useTheme as useCustomTheme } from '../contexts/ThemeContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -117,6 +119,11 @@ interface UserSettings {
     showEmail: boolean;
     showStats: boolean;
   };
+  preferences?: {
+    showFloatingQuickPayment?: boolean;
+    floatingButtonPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+    density?: 'compact' | 'comfortable' | 'spacious';
+  };
 }
 
 interface UserProfile {
@@ -129,12 +136,18 @@ interface UserProfile {
   timezone: string;
   dateFormat: string;
   theme: 'light' | 'dark' | 'auto';
+  preferences?: {
+    showFloatingQuickPayment?: boolean;
+    floatingButtonPosition?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+    density?: 'compact' | 'comfortable' | 'spacious';
+  };
 }
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
   const theme = useTheme();
+  const { setThemePreference, density, setDensity } = useCustomTheme();
   const [tabValue, setTabValue] = useState(0);
   const [editMode, setEditMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -318,7 +331,25 @@ const Settings: React.FC = () => {
   };
 
   const handleThemeChange = (newTheme: 'light' | 'dark' | 'auto') => {
+    // Update in the UI immediately
+    setThemePreference(newTheme);
+    
+    // Persist to the backend
     updateProfileMutation.mutate({ theme: newTheme });
+  };
+
+  const handlePreferenceChange = (key: string, value: any) => {
+    // Update density in UI immediately if it's the density setting
+    if (key === 'density') {
+      setDensity(value);
+    }
+    
+    updateProfileMutation.mutate({
+      preferences: {
+        ...settings?.preferences,
+        [key]: value,
+      },
+    });
   };
 
   if (isLoading) {
@@ -789,15 +820,57 @@ const Settings: React.FC = () => {
               Densidad de la Interfaz
             </Typography>
             
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mb: 3 }}>
               <InputLabel>Densidad</InputLabel>
               <Select
-                value="comfortable"
+                value={settings?.preferences?.density || density || 'comfortable'}
+                onChange={(e) => handlePreferenceChange('density', e.target.value)}
                 label="Densidad"
               >
                 <MenuItem value="compact">Compacta</MenuItem>
                 <MenuItem value="comfortable">Cómoda</MenuItem>
                 <MenuItem value="spacious">Espaciosa</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" gutterBottom>
+              Botón de Pago Rápido Flotante
+            </Typography>
+            
+            <Box sx={{ mb: 3 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={settings?.preferences?.showFloatingQuickPayment ?? true}
+                    onChange={(e) => handlePreferenceChange('showFloatingQuickPayment', e.target.checked)}
+                    color="secondary"
+                  />
+                }
+                label="Mostrar botón flotante de pago rápido"
+              />
+              <Typography variant="body2" color="textSecondary" sx={{ mt: 1, ml: 5 }}>
+                Muestra un botón flotante en todas las páginas para registrar pagos rápidamente
+              </Typography>
+            </Box>
+            
+            <FormControl 
+              fullWidth 
+              disabled={!settings?.preferences?.showFloatingQuickPayment}
+              sx={{ opacity: settings?.preferences?.showFloatingQuickPayment ? 1 : 0.5 }}
+            >
+              <InputLabel>Posición del botón</InputLabel>
+              <Select
+                value={settings?.preferences?.floatingButtonPosition || 'bottom-right'}
+                onChange={(e) => handlePreferenceChange('floatingButtonPosition', e.target.value)}
+                label="Posición del botón"
+                startAdornment={<FlashOnIcon sx={{ mr: 1, color: 'secondary.main' }} />}
+              >
+                <MenuItem value="bottom-right">Abajo a la derecha</MenuItem>
+                <MenuItem value="bottom-left">Abajo a la izquierda</MenuItem>
+                <MenuItem value="top-right">Arriba a la derecha</MenuItem>
+                <MenuItem value="top-left">Arriba a la izquierda</MenuItem>
               </Select>
             </FormControl>
           </Box>

@@ -180,7 +180,25 @@ app.use((err, req, res, next) => {
 });
 
 // Initialize database
-connectDB().then(() => {
+connectDB().then(async () => {
+    // Ensure Quick Payment category exists
+    const ensureQuickPaymentCategory = require('./scripts/ensureQuickPaymentCategory');
+    try {
+        await ensureQuickPaymentCategory();
+        console.log('Quick Payment category ensured');
+    } catch (error) {
+        console.error('Failed to ensure Quick Payment category:', error);
+    }
+    
+    // Ensure all users have preferences field
+    const addPreferencesToUsers = require('./scripts/addPreferencesToUsers');
+    try {
+        await addPreferencesToUsers();
+        console.log('User preferences field ensured');
+    } catch (error) {
+        console.error('Failed to ensure user preferences:', error);
+    }
+    
     const PORT = process.env.PORT || 5000;
     
     // For Vercel, we export the app instead of listening

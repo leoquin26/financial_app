@@ -31,6 +31,7 @@ import {
   Switch,
   InputAdornment,
   Skeleton,
+  Divider,
 } from '@mui/material';
 import {
   AccountBalance as BudgetIcon,
@@ -50,6 +51,7 @@ import {
   CleaningServices as CleaningServicesIcon,
   History as HistoryIcon,
   Refresh as RefreshIcon,
+  PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../config/api';
@@ -226,6 +228,20 @@ const MainBudgets: React.FC = () => {
     },
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
+  });
+
+  // Fetch all weekly budgets to show them alongside main budgets
+  const { data: weeklyBudgets = [] } = useQuery({
+    queryKey: ['weeklyBudgets', 'all'],
+    queryFn: async () => {
+      try {
+        const response = await axios.get('/api/weekly-budget');
+        return Array.isArray(response.data) ? response.data : [];
+      } catch (error) {
+        console.error('Error fetching weekly budgets:', error);
+        return [];
+      }
+    },
   });
 
   // Navigate to weekly budget
@@ -827,7 +843,7 @@ const MainBudgets: React.FC = () => {
       )}
 
       {/* All Budgets List */}
-      {budgets.length === 0 ? (
+      {budgets.length === 0 && weeklyBudgets.length === 0 ? (
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Paper sx={{ p: 6, textAlign: 'center', bgcolor: 'primary.50' }}>
@@ -856,22 +872,21 @@ const MainBudgets: React.FC = () => {
                   size="large"
                   startIcon={<CalendarIcon />}
                   onClick={async () => {
-                    // Quick create current month budget
+                    // Use the same quick monthly budget creation as quick payment
                     try {
-                      const now = new Date();
-                      const response = await axios.post('/api/main-budgets', {
-                        name: `${format(now, 'MMMM yyyy')} Budget`,
-                        periodType: 'monthly',
-                        totalBudget: 0,
-                        categories: [],
-                        settings: {
-                          autoCreateWeekly: true
-                        }
+                      const response = await axios.post('/api/weekly-budget/quick-monthly', {
+                        monthlyIncome: 0
                       });
+                      
+                      if (response.data.weeklyBudget?._id) {
+                        toast.success('Presupuesto rápido creado exitosamente!');
+                        navigate(`/budgets/week/${response.data.weeklyBudget._id}`);
+                      }
+                      
                       queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
-                      toast.success('Budget created! Add your budget amount to get started.');
+                      queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
                     } catch (error) {
-                      toast.error('Failed to create budget');
+                      toast.error('Failed to create quick budget');
                     }
                   }}
                   sx={{ px: 4 }}
@@ -1230,6 +1245,79 @@ const MainBudgets: React.FC = () => {
               </Grid>
             </Box>
           )}
+        </Box>
+      )}
+
+      {/* Weekly Budgets Section - Show weekly budgets created via quick payment */}
+      {weeklyBudgets.length > 0 && budgets.length === 0 && (
+        <Box>
+          <Typography variant="h5" fontWeight="bold" mb={3}>
+            Presupuestos Semanales
+          </Typography>
+          <Grid container spacing={3}>
+            {weeklyBudgets.map((weeklyBudget: any) => (
+              <Grid item xs={12} md={6} lg={4} key={weeklyBudget._id}>
+                <Card 
+                  sx={{ 
+                    cursor: 'pointer',
+                    '&:hover': { boxShadow: 4 },
+                    transition: 'all 0.2s'
+                  }}
+                  onClick={() => navigate(`/budgets/week/${weeklyBudget._id}`)}
+                >
+                  <CardContent>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                      <Box flex={1}>
+                        <Typography variant="h6" fontWeight="bold">
+                          Semana {format(new Date(weeklyBudget.weekStartDate), 'MMM d')} - {format(new Date(weeklyBudget.weekEndDate), 'MMM d')}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">
+                          Presupuesto Semanal Rápido
+                        </Typography>
+                      </Box>
+                      <Chip 
+                        label="activo" 
+                        size="small"
+                        color="success"
+                        icon={<PlayArrowIcon />}
+                      />
+                    </Box>
+                    
+                    <Box display="flex" justifyContent="space-between" mb={2}>
+                      <Box>
+                        <Typography variant="caption" color="textSecondary">Presupuesto</Typography>
+                        <Typography variant="h6">
+                          S/ {weeklyBudget.totalBudget?.toFixed(2) || '0.00'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Typography variant="caption" color="textSecondary">Gastado</Typography>
+                        <Typography variant="h6" color="primary">
+                          S/ {(weeklyBudget.totalBudget - weeklyBudget.remainingBudget)?.toFixed(2) || '0.00'}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={weeklyBudget.totalBudget > 0 ? ((weeklyBudget.totalBudget - weeklyBudget.remainingBudget) / weeklyBudget.totalBudget * 100) : 0} 
+                      sx={{ mb: 2, height: 6, borderRadius: 3 }}
+                    />
+
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      color="primary"
+                      endIcon={<ArrowForwardIcon />}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Ver Detalles
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
         </Box>
       )}
 
