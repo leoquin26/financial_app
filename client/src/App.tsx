@@ -15,17 +15,13 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
-import Budgets from './pages/Budgets';
 import Categories from './pages/Categories';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Households from './pages/Households';
 import HouseholdDetail from './pages/HouseholdDetail';
-import PaymentSchedule from './pages/PaymentSchedule';
-import WeeklyBudget from './pages/WeeklyBudget';
-import WeeklyBudgetEnhanced from './pages/WeeklyBudgetEnhanced';
+import PaymentSchedule from './pages/PaymentScheduleImproved';
 import WeeklyBudgetSimplified from './pages/WeeklyBudgetSimplified';
-import WeeklyBudgetDashboard from './pages/WeeklyBudgetDashboard';
 import MainBudgets from './pages/MainBudgets';
 
 // Components
