@@ -1,7 +1,7 @@
 /* eslint-disable no-restricted-globals */
 
-// Update this version with each deployment
-const CACHE_VERSION = 'v' + new Date().toISOString().split('T')[0].replace(/-/g, '');
+// This will be replaced by the build script
+const CACHE_VERSION = 'v1732165200000';
 const CACHE_NAME = `financial-app-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
