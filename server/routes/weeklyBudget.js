@@ -2240,7 +2240,7 @@ router.post('/quick-monthly', auth, async (req, res) => {
       
       if (activeMainBudget) {
         // Find the corresponding week in the main budget
-        const weekData = activeMainBudget.getWeekForDate(weekStart);
+        const weekData = activeMainBudget.getWeeklyBudgetForDate(weekStart);
         
         if (weekData && weekData.budgetId) {
           // Get the weekly budget from the main budget

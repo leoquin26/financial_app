@@ -1,13 +1,14 @@
 /* eslint-disable no-restricted-globals */
 
-const CACHE_NAME = 'financial-app-v1';
+// Update this version with each deployment
+const CACHE_VERSION = 'v' + new Date().toISOString().split('T')[0].replace(/-/g, '');
+const CACHE_NAME = `financial-app-${CACHE_VERSION}`;
 const urlsToCache = [
   '/',
-  '/static/css/main.css',
-  '/static/js/main.js',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png'
+  // Don't cache specific JS/CSS files as they have hashed names
 ];
 
 // Install event - cache assets
@@ -31,15 +32,28 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          // Delete all caches that don't match current version
+          if (cacheName.startsWith('financial-app-') && cacheName !== CACHE_NAME) {
             console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      // Force all clients to update to the new service worker
+      return self.clients.claim();
+    }).then(() => {
+      // Send message to all clients about the update
+      return self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'CACHE_UPDATED',
+            version: CACHE_VERSION
+          });
+        });
+      });
     })
   );
-  self.clients.claim();
 });
 
 // Fetch event - serve from cache, fallback to network

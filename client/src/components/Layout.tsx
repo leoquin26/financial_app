@@ -43,6 +43,7 @@ import NotificationMenu from './NotificationMenu';
 import FloatingQuickPayment from './FloatingQuickPayment';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import OfflineIndicator from './OfflineIndicator';
+import VersionCheck from './VersionCheck';
 import { useQuery } from '@tanstack/react-query';
 import { axiosInstance as axios } from '../config/api';
 
@@ -280,6 +281,9 @@ const Layout: React.FC = () => {
       
       {/* Offline Indicator */}
       <OfflineIndicator />
+      
+      {/* Version Check */}
+      <VersionCheck />
     </Box>
   );
 };
