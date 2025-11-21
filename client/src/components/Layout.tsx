@@ -262,15 +262,19 @@ const Layout: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, sm: 3 },
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          p: { xs: 1, sm: 2, md: 3 },
+          width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` },
           minHeight: '100vh',
           bgcolor: 'background.default',
-          pb: { xs: 8, sm: 3 }, // Add padding for bottom nav on mobile
+          pb: { xs: 10, sm: 3 }, // Add padding for bottom nav on mobile
+          overflow: 'hidden',
+          overflowY: 'auto',
         }}
       >
         <Toolbar />
-        <Outlet />
+        <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+          <Outlet />
+        </Box>
       </Box>
       
       {/* Floating Quick Payment Button */}

@@ -543,14 +543,21 @@ const Transactions: React.FC = () => {
   const filteredCategories = categories || [];
 
   return (
-    <Box>
+    <Box sx={{ width: '100%', overflow: 'hidden' }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box 
+        display="flex" 
+        flexDirection={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between" 
+        alignItems={{ xs: 'stretch', sm: 'center' }} 
+        gap={2}
+        mb={3}
+      >
         <Typography variant="h4" fontWeight="bold">
           Transacciones
         </Typography>
-        <Box display="flex" gap={2}>
-          <IconButton onClick={() => refetch()} color="primary">
+        <Box display="flex" gap={1} flexWrap="wrap" justifyContent={{ xs: 'flex-end', sm: 'flex-end' }}>
+          <IconButton onClick={() => refetch()} color="primary" size={isMobile ? "small" : "medium"}>
             <RefreshIcon />
           </IconButton>
           {selected.length > 0 && (
@@ -559,24 +566,29 @@ const Transactions: React.FC = () => {
               color="error"
               startIcon={<DeleteIcon />}
               onClick={handleBulkDelete}
+              size="small"
             >
-              Eliminar ({selected.length})
+              {isMobile ? selected.length : `Eliminar (${selected.length})`}
             </Button>
           )}
           <Button
             variant="contained"
             color="secondary"
-            startIcon={<FlashOnIcon />}
+            startIcon={isMobile ? null : <FlashOnIcon />}
             onClick={handleOpenQuickDialog}
+            size="small"
+            sx={{ minWidth: isMobile ? 'auto' : '120px' }}
           >
-            Pago Rápido
+            {isMobile ? '⚡' : 'Pago Rápido'}
           </Button>
           <Button
             variant="contained"
-            startIcon={<AddIcon />}
+            startIcon={isMobile ? null : <AddIcon />}
             onClick={() => handleOpenDialog()}
+            size="small"
+            sx={{ minWidth: isMobile ? 'auto' : '120px' }}
           >
-            Nueva Transacción
+            {isMobile ? '+' : 'Nueva Transacción'}
           </Button>
         </Box>
       </Box>
@@ -651,7 +663,7 @@ const Transactions: React.FC = () => {
       </Paper>
 
       {/* Table */}
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ width: '100%', overflowX: 'auto' }}>
         {loadingTransactions ? (
           <Box p={3}>
             {[...Array(5)].map((_, i) => (

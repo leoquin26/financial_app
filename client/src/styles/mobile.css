@@ -52,17 +52,16 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Prevent bounce scrolling on iOS */
+/* Prevent horizontal scrolling */
 body {
-  position: fixed;
-  overflow: hidden;
   width: 100%;
-  height: 100%;
+  overflow-x: hidden;
 }
 
 #root {
-  overflow: auto;
-  height: 100%;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* Loading spinner for PWA */

@@ -29,13 +29,26 @@
 /* ===== Base Responsive Reset ===== */
 * {
   box-sizing: border-box;
+  max-width: 100%;
 }
 
-html, body, #root {
+html {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
   width: 100%;
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
+  position: relative;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
   overflow-x: hidden;
 }
 

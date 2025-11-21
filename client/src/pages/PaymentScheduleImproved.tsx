@@ -478,9 +478,22 @@ const PaymentScheduleImproved: React.FC = () => {
   };
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
+    <Box sx={{ 
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'hidden',
+      px: { xs: 1, sm: 2, md: 3 }, 
+      py: { xs: 1, sm: 2 } 
+    }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+      <Box 
+        display="flex" 
+        flexDirection={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between" 
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+        mb={3} 
+        gap={2}
+      >
         <Typography variant="h4" fontWeight="bold">
           Payment Schedule
         </Typography>
@@ -607,10 +620,19 @@ const PaymentScheduleImproved: React.FC = () => {
       ) : (
         <>
           {tabValue === 0 && (
-            <Paper sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, boxShadow: 2 }}>
+            <Paper sx={{ 
+              p: { xs: 1, sm: 2, md: 3 }, 
+              borderRadius: 2, 
+              boxShadow: 2,
+              width: '100%',
+              overflow: 'hidden'
+            }}>
               <Box sx={{
+                width: '100%',
+                overflowX: 'auto',
                 '& .fc': {
                   fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+                  minWidth: { xs: '600px', sm: '100%' },
                 },
                 '& .fc-event': {
                   cursor: 'pointer',
@@ -897,7 +919,13 @@ const PaymentScheduleImproved: React.FC = () => {
       </Popover>
 
       {/* Create/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>
           {selectedPayment ? 'Edit Payment' : 'Create New Payment'}
         </DialogTitle>

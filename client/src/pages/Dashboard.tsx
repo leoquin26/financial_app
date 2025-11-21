@@ -218,14 +218,21 @@ const Dashboard: React.FC = () => {
   if (!data) return null;
 
   return (
-    <Box>
+    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box 
+        display="flex" 
+        flexDirection={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between" 
+        alignItems={{ xs: 'stretch', sm: 'center' }}
+        gap={2}
+        mb={3}
+      >
         <Typography variant="h4" fontWeight="bold">
           Dashboard Financiero
         </Typography>
-        <Box display="flex" gap={2}>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
+        <Box display="flex" gap={1} flexWrap="wrap" justifyContent={{ xs: 'center', sm: 'flex-end' }}>
+          <FormControl size="small" sx={{ minWidth: { xs: 80, sm: 120 } }}>
             <InputLabel>Mes</InputLabel>
             <Select
               value={selectedMonth}
@@ -263,6 +270,8 @@ const Dashboard: React.FC = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={() => navigate('/transactions')}
+            size={isMobile ? "small" : "medium"}
+            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
           >
             Nueva Transacción
           </Button>

@@ -460,7 +460,13 @@ const WeeklyBudgetSimplified: React.FC = () => {
   }
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: '100%', 
+      overflow: 'hidden',
+      px: { xs: 1, sm: 2, md: 3 }, 
+      py: { xs: 1, sm: 2 } 
+    }}>
       {/* Breadcrumbs */}
       {currentBudget?.parentBudgetId && (
         <Breadcrumbs 
