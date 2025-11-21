@@ -375,9 +375,59 @@ router.post('/quick', authMiddleware, async (req, res) => {
         const transactionCurrency = currency || user.currency || 'PEN';
 
         // Find current week's budget
-        const currentBudget = await WeeklyBudget.getCurrentWeek(req.userId);
+        let currentBudget = await WeeklyBudget.getCurrentWeek(req.userId);
         
-        // If no budget exists, return a response asking if user wants to create one
+        // If no weekly budget exists, check if there's a main budget with weekly allocations
+        if (!currentBudget) {
+            // Check for any active main budget
+            const MainBudget = require('../models/MainBudget');
+            const now = new Date();
+            
+            const activeMainBudget = await MainBudget.findOne({
+                userId: req.userId,
+                status: 'active',
+                'period.startDate': { $lte: now },
+                'period.endDate': { $gte: now }
+            });
+            
+            if (activeMainBudget) {
+                // Find the corresponding week in the main budget
+                const weekData = activeMainBudget.getWeekForDate(now);
+                
+                if (weekData && weekData.budgetId) {
+                    // Get the weekly budget from the main budget
+                    currentBudget = await WeeklyBudget.findById(weekData.budgetId);
+                } else if (weekData) {
+                    // Create a weekly budget for this week from the main budget
+                    const weeklyAllocation = activeMainBudget.weeklyAllocation || 
+                        (activeMainBudget.totalBudget / activeMainBudget.weeklyBudgets.length);
+                    
+                    currentBudget = new WeeklyBudget({
+                        userId: req.userId,
+                        parentBudgetId: activeMainBudget._id,
+                        weekNumber: weekData.weekNumber,
+                        weekStartDate: weekData.startDate,
+                        weekEndDate: weekData.endDate,
+                        totalBudget: weeklyAllocation,
+                        remainingBudget: weeklyAllocation,
+                        categories: activeMainBudget.categories.map(cat => ({
+                            categoryId: cat.categoryId,
+                            allocation: cat.weeklyAllocation || (cat.allocation / activeMainBudget.weeklyBudgets.length),
+                            payments: []
+                        })),
+                        creationMode: 'fromMainBudget'
+                    });
+                    
+                    await currentBudget.save();
+                    
+                    // Update the main budget with the weekly budget reference
+                    weekData.budgetId = currentBudget._id;
+                    await activeMainBudget.save();
+                }
+            }
+        }
+        
+        // If still no budget exists, return a response asking if user wants to create one
         if (!currentBudget) {
             return res.status(200).json({ 
                 requiresBudget: true,

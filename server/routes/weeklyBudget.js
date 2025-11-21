@@ -138,7 +138,10 @@ router.get('/current', auth, async (req, res) => {
       // Auto-create budget for current week
       const now = new Date();
       const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
+      // Calculate Monday as start of week
+      const dayOfWeek = now.getDay();
+      const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      startOfWeek.setDate(now.getDate() + daysToMonday);
       startOfWeek.setHours(0, 0, 0, 0);
       
       const endOfWeek = new Date(startOfWeek);
@@ -2208,7 +2211,10 @@ router.post('/quick-monthly', auth, async (req, res) => {
     // Get current week dates
     const now = new Date();
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay());
+    // Calculate Monday as start of week
+    const dayOfWeek = now.getDay();
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    weekStart.setDate(now.getDate() + daysToMonday);
     weekStart.setHours(0, 0, 0, 0);
     
     const weekEnd = new Date(weekStart);
@@ -2221,6 +2227,28 @@ router.post('/quick-monthly', auth, async (req, res) => {
       weekStartDate: { $lte: weekEnd },
       weekEndDate: { $gte: weekStart }
     });
+    
+    // Also check if there's a main budget with a weekly allocation for this period
+    if (!weeklyBudget) {
+      const MainBudget = require('../models/MainBudget');
+      const activeMainBudget = await MainBudget.findOne({
+        userId: req.user._id,
+        status: 'active',
+        'period.startDate': { $lte: weekEnd },
+        'period.endDate': { $gte: weekStart }
+      });
+      
+      if (activeMainBudget) {
+        // Find the corresponding week in the main budget
+        const weekData = activeMainBudget.getWeekForDate(weekStart);
+        
+        if (weekData && weekData.budgetId) {
+          // Get the weekly budget from the main budget
+          weeklyBudget = await WeeklyBudget.findById(weekData.budgetId)
+            .populate('categories.categoryId');
+        }
+      }
+    }
     
     if (!weeklyBudget) {
       // Get all expense categories

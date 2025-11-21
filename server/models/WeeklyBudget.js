@@ -260,11 +260,14 @@ weeklyBudgetSchema.methods.addPaymentToCategory = function(categoryId, payment) 
 weeklyBudgetSchema.statics.getCurrentWeek = async function(userId) {
   const now = new Date();
   const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
+  // Calculate Monday as start of week
+  const dayOfWeek = now.getDay();
+  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday (0), go back 6 days; otherwise go to Monday
+  startOfWeek.setDate(now.getDate() + daysToMonday);
   startOfWeek.setHours(0, 0, 0, 0);
   
   const endOfWeek = new Date(startOfWeek);
-  endOfWeek.setDate(startOfWeek.getDate() + 6); // Saturday
+  endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
   endOfWeek.setHours(23, 59, 59, 999);
 
   return this.findOne({
