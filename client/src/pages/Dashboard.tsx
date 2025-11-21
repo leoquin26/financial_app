@@ -14,6 +14,8 @@ import {
   Skeleton,
   Alert,
   Button,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -116,6 +118,9 @@ interface DashboardData {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
   
@@ -308,8 +313,8 @@ const Dashboard: React.FC = () => {
       <Grid container spacing={3} mb={3}>
         {/* Monthly Trend Chart */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant="h6" gutterBottom>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, height: { xs: 300, sm: 400 } }}>
+            <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
               Tendencia Mensual
             </Typography>
             <ResponsiveContainer width="100%" height="90%">
@@ -344,8 +349,8 @@ const Dashboard: React.FC = () => {
 
         {/* Expenses by Category Pie Chart */}
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 3, height: 400 }}>
-            <Typography variant="h6" gutterBottom>
+          <Paper sx={{ p: { xs: 2, sm: 3 }, height: { xs: 300, sm: 400 } }}>
+            <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
               Gastos por Categoría
             </Typography>
             <ResponsiveContainer width="100%" height="90%">

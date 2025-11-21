@@ -29,6 +29,9 @@ interface CustomThemeProviderProps {
 export const CustomThemeProvider: React.FC<CustomThemeProviderProps> = ({ children }) => {
   const { user } = useAuth();
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  const isMobile = useMediaQuery('(max-width:600px)');
+  const isTablet = useMediaQuery('(min-width:600px) and (max-width:960px)');
+  const isDesktop = useMediaQuery('(min-width:960px)');
   const [themePreference, setThemePreference] = useState<'light' | 'dark' | 'auto'>('light');
   const [density, setDensity] = useState<'compact' | 'comfortable' | 'spacious'>('comfortable');
 
@@ -89,6 +92,15 @@ export const CustomThemeProvider: React.FC<CustomThemeProviderProps> = ({ childr
     () =>
       createTheme({
         spacing: currentDensity.spacing,
+        breakpoints: {
+          values: {
+            xs: 0,
+            sm: 600,
+            md: 960,
+            lg: 1280,
+            xl: 1920,
+          },
+        },
         palette: {
           mode,
           ...(mode === 'light'
@@ -168,7 +180,7 @@ export const CustomThemeProvider: React.FC<CustomThemeProviderProps> = ({ childr
         typography: {
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
           h1: {
-            fontSize: '2.5rem',
+            fontSize: isMobile ? '1.75rem' : '2.5rem',
             fontWeight: 600,
           },
           h2: {

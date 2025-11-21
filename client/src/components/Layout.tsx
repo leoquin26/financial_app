@@ -20,6 +20,9 @@ import {
   useTheme,
   useMediaQuery,
   Chip,
+  BottomNavigation,
+  BottomNavigationAction,
+  Paper,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -259,10 +262,11 @@ const Layout: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 2, sm: 3 },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           minHeight: '100vh',
           bgcolor: 'background.default',
+          pb: { xs: 8, sm: 3 }, // Add padding for bottom nav on mobile
         }}
       >
         <Toolbar />
@@ -284,6 +288,49 @@ const Layout: React.FC = () => {
       
       {/* Version Check */}
       <VersionCheck />
+      
+      {/* Mobile Bottom Navigation */}
+      {isMobile && (
+        <Paper 
+          sx={{ 
+            position: 'fixed', 
+            bottom: 0, 
+            left: 0, 
+            right: 0,
+            zIndex: 1200,
+          }} 
+          elevation={3}
+        >
+          <BottomNavigation
+            value={location.pathname}
+            onChange={(event, newValue) => {
+              navigate(newValue);
+            }}
+            showLabels
+          >
+            <BottomNavigationAction 
+              label="Dashboard" 
+              value="/dashboard"
+              icon={<DashboardIcon />} 
+            />
+            <BottomNavigationAction 
+              label="Transacciones" 
+              value="/transactions"
+              icon={<ReceiptIcon />} 
+            />
+            <BottomNavigationAction 
+              label="Presupuestos" 
+              value="/budgets"
+              icon={<BudgetIcon />} 
+            />
+            <BottomNavigationAction 
+              label="Análisis" 
+              value="/analytics"
+              icon={<AnalyticsIcon />} 
+            />
+          </BottomNavigation>
+        </Paper>
+      )}
     </Box>
   );
 };

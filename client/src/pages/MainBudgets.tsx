@@ -775,9 +775,9 @@ const MainBudgets: React.FC = () => {
                         }}
                       >
                         <CardContent>
-                          <Grid container spacing={3} alignItems="center">
+                          <Grid container spacing={2} alignItems="center">
                             <Grid item xs={12} md={3}>
-                              <Typography variant="h5" fontWeight="bold" color="primary">
+                              <Typography variant="h5" fontWeight="bold" color="primary" sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
                                 {format(new Date(budget.period.startDate), 'MMMM yyyy')}
                               </Typography>
                               <Typography variant="body2" color="textSecondary">
@@ -785,24 +785,24 @@ const MainBudgets: React.FC = () => {
                               </Typography>
                             </Grid>
                             <Grid item xs={12} md={6}>
-                              <Box display="flex" justifyContent="space-around">
-                                <Box textAlign="center">
+                              <Box display="flex" justifyContent="space-around" flexWrap="wrap" gap={2}>
+                                <Box textAlign="center" flex="1 1 auto" minWidth="80px">
                                   <Typography variant="caption" color="textSecondary">Budget</Typography>
-                                  <Typography variant="h6">${budget.totalBudget.toLocaleString()}</Typography>
+                                  <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>${budget.totalBudget.toLocaleString()}</Typography>
                                 </Box>
-                                <Box textAlign="center">
+                                <Box textAlign="center" flex="1 1 auto" minWidth="80px">
                                   <Typography variant="caption" color="textSecondary">Spent</Typography>
-                                  <Typography variant="h6" color="primary">${budget.analytics.totalSpent.toLocaleString()}</Typography>
+                                  <Typography variant="h6" color="primary" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>${budget.analytics.totalSpent.toLocaleString()}</Typography>
                                 </Box>
-                                <Box textAlign="center">
+                                <Box textAlign="center" flex="1 1 auto" minWidth="80px">
                                   <Typography variant="caption" color="textSecondary">Remaining</Typography>
-                                  <Typography variant="h6" color={budget.analytics.totalRemaining < 0 ? 'error' : 'success'}>
+                                  <Typography variant="h6" color={budget.analytics.totalRemaining < 0 ? 'error' : 'success'} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                                     ${budget.analytics.totalRemaining.toLocaleString()}
                                   </Typography>
                                 </Box>
                               </Box>
                             </Grid>
-                            <Grid item xs={12} md={3} textAlign="right">
+                            <Grid item xs={12} md={3} textAlign={{ xs: 'center', md: 'right' }}>
                               <Button 
                                 variant="contained" 
                                 endIcon={<ArrowForwardIcon />}

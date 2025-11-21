@@ -31,6 +31,8 @@ import {
   ListItemSecondaryAction,
   Popover,
   InputAdornment,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -115,6 +117,8 @@ const PaymentScheduleImproved: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [tabValue, setTabValue] = useState(0);
   const [selectedWeek, setSelectedWeek] = useState(new Date());
   const [openDialog, setOpenDialog] = useState(false);

@@ -282,11 +282,18 @@ const Analytics: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" fontWeight="bold">
+      <Box 
+        display="flex" 
+        flexDirection={{ xs: 'column', sm: 'row' }} 
+        justifyContent="space-between" 
+        alignItems={{ xs: 'stretch', sm: 'center' }} 
+        gap={2}
+        mb={3}
+      >
+        <Typography variant="h4" fontWeight="bold" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
           Análisis Financiero
         </Typography>
-        <Box display="flex" gap={2}>
+        <Box display="flex" gap={1} flexWrap="wrap" justifyContent={{ xs: 'center', sm: 'flex-end' }}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Período</InputLabel>
             <Select
@@ -309,6 +316,8 @@ const Analytics: React.FC = () => {
             variant="outlined"
             startIcon={<FileDownload />}
             onClick={exportData}
+            size="small"
+            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
           >
             Exportar
           </Button>

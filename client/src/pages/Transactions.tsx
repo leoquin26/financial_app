@@ -11,6 +11,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  useTheme,
+  useMediaQuery,
   TablePagination,
   IconButton,
   Chip,
@@ -120,6 +122,8 @@ const Transactions: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { socket } = useSocket();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // State
   const [page, setPage] = useState(0);
@@ -671,9 +675,63 @@ const Transactions: React.FC = () => {
           </Box>
         ) : (
           <>
-            <Table>
-              <TableHead>
-                <TableRow>
+            {isMobile ? (
+              // Mobile Card View
+              <Box>
+                {transactions?.transactions?.map((transaction: Transaction) => (
+                  <Card key={transaction._id} sx={{ mb: 2 }}>
+                    <CardContent>
+                      <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
+                        <Box>
+                          <Typography variant="body2" color="textSecondary">
+                            {format(parseISO(transaction.date), 'dd/MM/yyyy', { locale: es })}
+                          </Typography>
+                          <Typography variant="body1" fontWeight="medium">
+                            {transaction.description || 'Sin descripción'}
+                          </Typography>
+                        </Box>
+                        <Box textAlign="right">
+                          <Typography
+                            variant="h6"
+                            fontWeight="bold"
+                            color={transaction.type === 'income' ? 'success.main' : 'error.main'}
+                          >
+                            {transaction.type === 'income' ? '+' : '-'}
+                            {formatCurrency(transaction.amount, transaction.currency)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Box display="flex" justifyContent="space-between" alignItems="center">
+                        <Chip
+                          icon={<span>{(transaction as any).categoryId?.icon || transaction.icon || '📂'}</span>}
+                          label={(transaction as any).categoryId?.name || transaction.category_name || 'Sin categoría'}
+                          size="small"
+                          sx={{
+                            bgcolor: ((transaction as any).categoryId?.color || transaction.color || '#666') + '20',
+                            color: (transaction as any).categoryId?.color || transaction.color || '#666',
+                          }}
+                        />
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {transaction.is_recurring && (
+                            <Chip label="Recurrente" size="small" variant="outlined" />
+                          )}
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMenuClick(e, transaction)}
+                          >
+                            <MoreIcon />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            ) : (
+              // Desktop Table View
+              <Table>
+                <TableHead>
+                  <TableRow>
                   <TableCell padding="checkbox">
                     <Checkbox
                       indeterminate={
@@ -750,6 +808,7 @@ const Transactions: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
+            )}
             <TablePagination
               rowsPerPageOptions={[5, 10, 25, 50]}
               component="div"

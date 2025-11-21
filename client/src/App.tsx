@@ -10,6 +10,8 @@ import { CustomThemeProvider } from './contexts/ThemeContext';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useEffect } from 'react';
+import './styles/responsive.css';
+import './styles/mobile.css';
 
 // Pages
 import Login from './pages/Login';

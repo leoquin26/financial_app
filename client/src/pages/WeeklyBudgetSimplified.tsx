@@ -494,7 +494,14 @@ const WeeklyBudgetSimplified: React.FC = () => {
       )}
 
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box 
+        display="flex" 
+        flexDirection={{ xs: 'column', md: 'row' }}
+        justifyContent="space-between" 
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        gap={2}
+        mb={3}
+      >
         <Box display="flex" alignItems="center" gap={2}>
           {currentBudget?.parentBudgetId && (
             <IconButton 
@@ -516,21 +523,35 @@ const WeeklyBudgetSimplified: React.FC = () => {
             </Typography>
           </Box>
         </Box>
-        <Box display="flex" gap={2}>
+        <Box 
+          display="flex" 
+          gap={1}
+          flexWrap="wrap"
+          justifyContent={{ xs: 'center', md: 'flex-end' }}
+        >
           {households.length > 0 && currentBudget && (
             <Button
               variant="outlined"
               startIcon={<GroupIcon />}
               onClick={() => setOpenShareDialog(true)}
               color={currentBudget.isSharedWithHousehold ? "success" : "inherit"}
+              size="small"
+              sx={{ minWidth: { xs: 'auto', sm: 'initial' } }}
             >
-              {currentBudget.isSharedWithHousehold ? 'Shared' : 'Share'}
+              <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {currentBudget.isSharedWithHousehold ? 'Shared' : 'Share'}
+              </Box>
+              <Box sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                <GroupIcon />
+              </Box>
             </Button>
           )}
           <Button
             variant="outlined"
             startIcon={<CalendarIcon />}
             onClick={() => navigate('/payments')}
+            size="small"
+            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
           >
             View Calendar
           </Button>
@@ -541,6 +562,8 @@ const WeeklyBudgetSimplified: React.FC = () => {
               setTotalBudget(currentBudget?.totalBudget?.toString() || '');
               setOpenBudgetDialog(true);
             }}
+            size="small"
+            fullWidth={{ xs: true, sm: false }}
           >
             {currentBudget?.totalBudget > 0 ? 'Edit Budget' : 'Set Budget'}
           </Button>
@@ -549,6 +572,8 @@ const WeeklyBudgetSimplified: React.FC = () => {
               variant="outlined"
               startIcon={<AddIcon />}
               onClick={() => setOpenCategorySelector(true)}
+              size="small"
+              sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
             >
               Add Category
             </Button>

@@ -1,0 +1,457 @@
+/* Responsive Design System for Financial App */
+
+/* ===== CSS Variables for Responsive Design ===== */
+:root {
+  /* Breakpoints */
+  --breakpoint-xs: 0;
+  --breakpoint-sm: 600px;
+  --breakpoint-md: 960px;
+  --breakpoint-lg: 1280px;
+  --breakpoint-xl: 1920px;
+  
+  /* Spacing */
+  --spacing-mobile: 8px;
+  --spacing-tablet: 16px;
+  --spacing-desktop: 24px;
+  
+  /* Font sizes */
+  --font-size-mobile-h1: 1.75rem;
+  --font-size-mobile-h2: 1.5rem;
+  --font-size-mobile-h3: 1.25rem;
+  --font-size-mobile-body: 0.875rem;
+  
+  --font-size-desktop-h1: 2.5rem;
+  --font-size-desktop-h2: 2rem;
+  --font-size-desktop-h3: 1.5rem;
+  --font-size-desktop-body: 1rem;
+}
+
+/* ===== Base Responsive Reset ===== */
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* ===== Container System ===== */
+.responsive-container {
+  width: 100%;
+  padding: 0 var(--spacing-mobile);
+  margin: 0 auto;
+}
+
+@media (min-width: 600px) {
+  .responsive-container {
+    padding: 0 var(--spacing-tablet);
+  }
+}
+
+@media (min-width: 960px) {
+  .responsive-container {
+    padding: 0 var(--spacing-desktop);
+    max-width: 1200px;
+  }
+}
+
+/* ===== Typography ===== */
+h1, .MuiTypography-h1 {
+  font-size: var(--font-size-mobile-h1) !important;
+  line-height: 1.2;
+}
+
+h2, .MuiTypography-h2 {
+  font-size: var(--font-size-mobile-h2) !important;
+  line-height: 1.3;
+}
+
+h3, .MuiTypography-h3 {
+  font-size: var(--font-size-mobile-h3) !important;
+  line-height: 1.4;
+}
+
+h4, .MuiTypography-h4 {
+  font-size: 1.125rem !important;
+  line-height: 1.4;
+}
+
+@media (min-width: 600px) {
+  h1, .MuiTypography-h1 {
+    font-size: calc(var(--font-size-mobile-h1) + 0.25rem) !important;
+  }
+  
+  h2, .MuiTypography-h2 {
+    font-size: calc(var(--font-size-mobile-h2) + 0.25rem) !important;
+  }
+  
+  h3, .MuiTypography-h3 {
+    font-size: calc(var(--font-size-mobile-h3) + 0.25rem) !important;
+  }
+}
+
+@media (min-width: 960px) {
+  h1, .MuiTypography-h1 {
+    font-size: var(--font-size-desktop-h1) !important;
+  }
+  
+  h2, .MuiTypography-h2 {
+    font-size: var(--font-size-desktop-h2) !important;
+  }
+  
+  h3, .MuiTypography-h3 {
+    font-size: var(--font-size-desktop-h3) !important;
+  }
+  
+  h4, .MuiTypography-h4 {
+    font-size: 1.25rem !important;
+  }
+}
+
+/* ===== Material-UI Component Overrides ===== */
+
+/* Buttons */
+@media (max-width: 600px) {
+  .MuiButton-root {
+    padding: 10px 16px;
+    font-size: 0.875rem;
+    min-height: 44px;
+    min-width: 64px;
+  }
+  
+  .MuiButton-sizeLarge {
+    padding: 12px 20px;
+    font-size: 0.9375rem;
+  }
+  
+  .MuiIconButton-root {
+    padding: 8px;
+  }
+  
+  /* Full width buttons on mobile */
+  .mobile-full-width {
+    width: 100%;
+  }
+}
+
+/* Dialogs */
+@media (max-width: 600px) {
+  .MuiDialog-paper {
+    margin: 16px;
+    width: calc(100% - 32px);
+    max-width: 100% !important;
+  }
+  
+  .MuiDialogTitle-root {
+    padding: 16px;
+  }
+  
+  .MuiDialogContent-root {
+    padding: 8px 16px;
+  }
+  
+  .MuiDialogActions-root {
+    padding: 8px 16px;
+    flex-wrap: wrap;
+    
+    & > button {
+      margin: 4px;
+      flex: 1 1 auto;
+      min-width: 120px;
+    }
+  }
+}
+
+/* Cards */
+@media (max-width: 600px) {
+  .MuiCard-root {
+    margin-bottom: 8px;
+    border-radius: 8px;
+  }
+  
+  .MuiCardContent-root {
+    padding: 16px;
+    
+    &:last-child {
+      padding-bottom: 16px;
+    }
+  }
+}
+
+/* Tables */
+@media (max-width: 600px) {
+  /* Make tables scrollable on mobile */
+  .MuiTableContainer-root {
+    overflow-x: auto;
+  }
+  
+  .MuiTable-root {
+    min-width: 300px;
+  }
+  
+  .MuiTableCell-root {
+    padding: 8px;
+    font-size: 0.813rem;
+  }
+  
+  /* Hide less important columns on mobile */
+  .hide-on-mobile {
+    display: none;
+  }
+}
+
+@media (min-width: 600px) {
+  .hide-on-mobile {
+    display: table-cell;
+  }
+}
+
+/* Forms */
+@media (max-width: 600px) {
+  .MuiTextField-root {
+    margin-bottom: 12px;
+  }
+  
+  .MuiFormControl-root {
+    margin-bottom: 12px;
+  }
+  
+  /* Stack form elements vertically on mobile */
+  .MuiGrid-container {
+    & > .MuiGrid-item {
+      padding: 4px;
+    }
+  }
+}
+
+/* Lists */
+@media (max-width: 600px) {
+  .MuiListItem-root {
+    padding: 12px 16px;
+  }
+  
+  .MuiListItemText-primary {
+    font-size: 0.875rem;
+  }
+  
+  .MuiListItemText-secondary {
+    font-size: 0.75rem;
+  }
+}
+
+/* Navigation */
+@media (max-width: 600px) {
+  /* Bottom navigation for mobile */
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--mui-palette-background-paper);
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 1200;
+  }
+  
+  /* Adjust main content to account for bottom nav */
+  .with-bottom-nav {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+  
+  /* Hide desktop navigation on mobile */
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 600px) {
+  .mobile-bottom-nav {
+    display: none;
+  }
+  
+  .mobile-only {
+    display: none !important;
+  }
+  
+  .desktop-only {
+    display: initial;
+  }
+}
+
+/* Floating Action Button */
+@media (max-width: 600px) {
+  .MuiFab-root {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    right: 16px;
+  }
+  
+  .with-bottom-nav .MuiFab-root {
+    bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Grid System */
+@media (max-width: 600px) {
+  /* Stack grid items on mobile */
+  .MuiGrid-container {
+    &.mobile-stack > .MuiGrid-item {
+      width: 100%;
+      max-width: 100%;
+      flex-basis: 100%;
+    }
+  }
+}
+
+/* Utility Classes */
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mt-3 { margin-top: 24px; }
+
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 16px; }
+.mb-3 { margin-bottom: 24px; }
+
+.p-1 { padding: 8px; }
+.p-2 { padding: 16px; }
+.p-3 { padding: 24px; }
+
+/* Responsive utilities */
+@media (max-width: 599px) {
+  .hide-xs { display: none !important; }
+}
+
+@media (min-width: 600px) and (max-width: 959px) {
+  .hide-sm { display: none !important; }
+}
+
+@media (min-width: 960px) and (max-width: 1279px) {
+  .hide-md { display: none !important; }
+}
+
+@media (min-width: 1280px) {
+  .hide-lg { display: none !important; }
+}
+
+/* Touch-friendly interactions */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Remove hover effects on touch devices */
+  .MuiButton-root:hover {
+    background-color: inherit;
+  }
+}
+
+/* Landscape mode adjustments */
+@media (max-height: 500px) and (orientation: landscape) {
+  .MuiAppBar-root {
+    min-height: 48px;
+  }
+  
+  .MuiDialogTitle-root {
+    padding: 8px 16px;
+  }
+  
+  .MuiDialogContent-root {
+    padding: 8px 16px;
+  }
+}
+
+/* Loading states */
+.skeleton-mobile {
+  @media (max-width: 600px) {
+    height: 60px;
+    margin-bottom: 8px;
+  }
+}
+
+/* Responsive images */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Overflow handling */
+.overflow-auto {
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.overflow-x-auto {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Budget card specific styles */
+@media (max-width: 600px) {
+  .budget-card {
+    .MuiCardContent-root {
+      padding: 12px;
+    }
+    
+    .budget-amount {
+      font-size: 1.25rem;
+    }
+    
+    .budget-label {
+      font-size: 0.75rem;
+    }
+  }
+}
+
+/* Payment list specific styles */
+@media (max-width: 600px) {
+  .payment-list-item {
+    .payment-amount {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+    
+    .payment-date {
+      font-size: 0.75rem;
+    }
+  }
+}
+
+/* Category grid */
+@media (max-width: 600px) {
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* Responsive charts */
+@media (max-width: 600px) {
+  .chart-container {
+    height: 200px;
+    margin: 0 -16px;
+  }
+}
+
+/* Swipeable views for mobile */
+.swipeable-container {
+  @media (max-width: 600px) {
+    margin: 0 -16px;
+    
+    .swipeable-content {
+      padding: 0 16px;
+    }
+  }
+}
