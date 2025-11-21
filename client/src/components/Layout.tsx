@@ -264,17 +264,25 @@ const Layout: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 1, sm: 2, md: 3 },
-          width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` },
+          p: { xs: 0.5, sm: 2, md: 3 },
+          width: { xs: '100vw', sm: `calc(100% - ${drawerWidth}px)` },
+          maxWidth: { xs: '100vw', sm: '100%' },
           minHeight: '100vh',
           bgcolor: 'background.default',
           pb: { xs: 10, sm: 3 }, // Add padding for bottom nav on mobile
           overflow: 'hidden',
           overflowY: 'auto',
+          boxSizing: 'border-box',
         }}
       >
         <Toolbar />
-        <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+        <Box sx={{ 
+          width: '100%', 
+          maxWidth: '100%', 
+          overflow: 'hidden',
+          px: { xs: 1, sm: 0 },
+          boxSizing: 'border-box',
+        }}>
           <Outlet />
         </Box>
       </Box>
@@ -303,7 +311,10 @@ const Layout: React.FC = () => {
             bottom: 0, 
             left: 0, 
             right: 0,
+            width: '100vw',
             zIndex: 1200,
+            borderRadius: 0,
+            pb: 'env(safe-area-inset-bottom)',
           }} 
           elevation={3}
         >
@@ -313,6 +324,7 @@ const Layout: React.FC = () => {
               navigate(newValue);
             }}
             showLabels
+            sx={{ width: '100%' }}
           >
             <BottomNavigationAction 
               label="Dashboard" 

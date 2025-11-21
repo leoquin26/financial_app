@@ -1,19 +1,33 @@
 /* Emergency overflow fixes for mobile */
 
 /* Force no horizontal scroll on body and root */
-html, body {
-  width: 100% !important;
-  max-width: 100% !important;
+html {
+  width: 100vw !important;
+  max-width: 100vw !important;
   overflow-x: hidden !important;
   margin: 0 !important;
   padding: 0 !important;
 }
 
+body {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: relative !important;
+}
+
 #root {
-  width: 100% !important;
-  max-width: 100% !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
   overflow-x: hidden !important;
   position: relative !important;
+}
+
+/* Ensure nothing can exceed viewport */
+*, *::before, *::after {
+  max-width: 100vw !important;
 }
 
 /* Fix all direct children of root */

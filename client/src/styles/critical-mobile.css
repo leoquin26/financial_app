@@ -1,0 +1,73 @@
+/* Critical CSS for mobile - Load this first */
+
+/* Immediate viewport constraints */
+@viewport {
+  width: device-width;
+  zoom: 1.0;
+  user-zoom: fixed;
+}
+
+/* Base resets - MUST be applied immediately */
+*, *::before, *::after {
+  -webkit-box-sizing: border-box !important;
+  -moz-box-sizing: border-box !important;
+  box-sizing: border-box !important;
+  max-width: 100vw !important;
+}
+
+html {
+  font-size: 16px !important; /* Prevent iOS zoom on input focus */
+  -webkit-text-size-adjust: 100% !important;
+  width: 100vw !important;
+  overflow-x: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body {
+  width: 100vw !important;
+  overflow-x: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+#root {
+  width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
+/* Prevent common overflow issues */
+pre, code, .MuiTypography-root {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+}
+
+/* Fix inputs on iOS to prevent zoom */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
+/* Immediate Grid fixes */
+[class*="MuiGrid-container"] {
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+/* iPhone specific viewport fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS specific */
+  body {
+    position: fixed !important;
+    width: 100% !important;
+  }
+  
+  #root {
+    position: fixed !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}

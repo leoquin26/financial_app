@@ -1,3 +1,6 @@
+/* Import critical mobile CSS first */
+@import url('./styles/critical-mobile.css');
+
 * {
   box-sizing: border-box;
 }

@@ -14,6 +14,7 @@ import { useEffect } from 'react';
 import './styles/responsive.css';
 import './styles/mobile.css';
 import './styles/overflow-fix.css';
+import './styles/ios-fix.css';
 
 // Pages
 import Login from './pages/Login';
@@ -57,6 +58,14 @@ function App() {
     };
     setVH();
     window.addEventListener('resize', setVH);
+    
+    // Fix iOS viewport issues
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      document.documentElement.style.position = 'fixed';
+      document.documentElement.style.width = '100%';
+      document.documentElement.style.height = '100%';
+      document.documentElement.style.overflow = 'hidden';
+    }
     
     return () => {
       window.removeEventListener('resize', setVH);
