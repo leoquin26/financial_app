@@ -46,6 +46,8 @@ import { es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { axiosInstance as axios } from '../config/api';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currencies';
+import { useAuth } from '../contexts/AuthContext';
 
 interface DashboardData {
   summary: {
@@ -121,6 +123,7 @@ const Dashboard: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const { user } = useAuth();
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
   
@@ -138,10 +141,7 @@ const Dashboard: React.FC = () => {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-    }).format(amount);
+    return formatCurrencyUtil(amount, user?.currency || 'PEN');
   };
 
   const StatCard = ({ title, value, change, changePercent, icon, color }: any) => (

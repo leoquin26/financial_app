@@ -59,6 +59,7 @@ import InlinePaymentCreator from '../components/InlinePaymentCreator';
 import PaymentStatusDropdown from '../components/PaymentStatusDropdown';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
+import { formatCurrency, getCurrencySymbol } from '../utils/currencies';
 
 interface Category {
   _id: string;
@@ -598,15 +599,15 @@ const WeeklyBudgetSimplified: React.FC = () => {
                     Total Budget
                   </Typography>
                   <Typography variant="h5" fontWeight="bold">
-                    ${currentBudget?.totalBudget?.toFixed(2) || '0.00'}
+                    {formatCurrency(currentBudget?.totalBudget || 0, user?.currency || 'PEN')}
                   </Typography>
                   {currentBudget?.totalBudget > 0 && (
                     <Box>
                       <Typography variant="caption" color="textSecondary" display="block">
-                        After scheduled: ${(currentBudget.totalBudget - totalScheduled).toFixed(2)}
+                        After scheduled: {formatCurrency((currentBudget.totalBudget - totalScheduled), user?.currency || 'PEN')}
                       </Typography>
                       <Typography variant="caption" color="success.main" fontWeight="bold">
-                        After paid: ${(currentBudget.totalBudget - totalSpent).toFixed(2)}
+                        After paid: {formatCurrency((currentBudget.totalBudget - totalSpent), user?.currency || 'PEN')}
                       </Typography>
                     </Box>
                   )}
@@ -630,7 +631,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
                     fontWeight="bold"
                     color={currentBudget?.totalBudget && totalScheduled > currentBudget.totalBudget ? 'error' : 'inherit'}
                   >
-                    ${totalScheduled.toFixed(2)}
+                    {formatCurrency(totalScheduled, user?.currency || 'PEN')}
                   </Typography>
                   <Typography variant="caption" color="textSecondary">
                     {currentBudget?.categories 
@@ -653,7 +654,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
                     Paid
                   </Typography>
                   <Typography variant="h5" fontWeight="bold" color="success.main">
-                    ${totalSpent.toFixed(2)}
+                    {formatCurrency(totalSpent, user?.currency || 'PEN')}
                   </Typography>
                   <Typography variant="caption" color="textSecondary">
                     {((totalSpent / (totalScheduled || 1)) * 100).toFixed(0)}% complete
@@ -712,7 +713,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
                     fontWeight="bold"
                     color="success.main"
                   >
-                    ${currentBudget?.totalBudget > 0 ? (currentBudget.totalBudget - totalSpent).toFixed(2) : '0.00'}
+                    {formatCurrency(currentBudget?.totalBudget > 0 ? (currentBudget.totalBudget - totalSpent) : 0, user?.currency || 'PEN')}
                   </Typography>
                   <Typography variant="caption" color="textSecondary">
                     Real balance after paid expenses
@@ -731,7 +732,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
             <Typography variant="subtitle2">Budget Usage</Typography>
             <Typography variant="caption" color="textSecondary">
-              {totalScheduled.toFixed(2)} / {currentBudget.totalBudget.toFixed(2)}
+              {formatCurrency(totalScheduled, user?.currency || 'PEN')} / {formatCurrency(currentBudget.totalBudget, user?.currency || 'PEN')}
             </Typography>
           </Box>
           <LinearProgress
@@ -922,7 +923,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
                   primary={category.name}
                   secondary={
                     hasPayments && categoryData
-                      ? `$${categoryData.totalAmount.toFixed(2)} - ${categoryData.payments.length} payment${categoryData.payments.length > 1 ? 's' : ''}`
+                      ? `${formatCurrency(categoryData.totalAmount, user?.currency || 'PEN')} - ${categoryData.payments.length} payment${categoryData.payments.length > 1 ? 's' : ''}`
                       : 'No payments scheduled'
                   }
                 />
@@ -979,7 +980,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
                             </Box>
                             <Box display="flex" flexDirection="column" alignItems="flex-end" gap={1}>
                               <Typography variant="h6" fontWeight="bold" color="primary">
-                                ${payment.amount.toFixed(2)}
+                                {formatCurrency(payment.amount, user?.currency || 'PEN')}
                               </Typography>
                               <Box display="flex" alignItems="center" gap={1}>
                                 <IconButton 

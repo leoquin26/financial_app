@@ -47,6 +47,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatCurrency as formatCurrencyUtil } from '../utils/currencies';
+import { useAuth } from '../contexts/AuthContext';
 import {
   LineChart,
   Line,
@@ -156,6 +158,7 @@ const COLORS = [
 ];
 
 const Analytics: React.FC = () => {
+  const { user } = useAuth();
   const [period, setPeriod] = useState('6months');
   const [tabValue, setTabValue] = useState(0);
   const [chartType, setChartType] = useState<'line' | 'area' | 'bar'>('area');
@@ -212,10 +215,7 @@ const Analytics: React.FC = () => {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-    }).format(amount);
+    return formatCurrencyUtil(amount, user?.currency || 'PEN');
   };
 
   const formatPercent = (value: number) => {

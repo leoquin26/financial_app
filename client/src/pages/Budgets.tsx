@@ -48,6 +48,8 @@ import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { useSocket } from '../contexts/SocketContext';
 import { axiosInstance as axios } from '../config/api';
+import { formatCurrency as formatCurrencyUtil, getCurrencySymbol } from '../utils/currencies';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Budget {
   id: number;
@@ -86,6 +88,7 @@ interface BudgetForm {
 const Budgets: React.FC = () => {
   const queryClient = useQueryClient();
   const { socket } = useSocket();
+  const { user } = useAuth();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [filterPeriod, setFilterPeriod] = useState<string>('all');
@@ -235,10 +238,7 @@ const Budgets: React.FC = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-    }).format(amount);
+    return formatCurrencyUtil(amount, user?.currency || 'PEN');
   };
 
   const getProgressColor = (percentage: number) => {
@@ -657,7 +657,7 @@ const Budgets: React.FC = () => {
                       helperText={errors.amount?.message}
                       InputProps={{
                         startAdornment: (
-                          <InputAdornment position="start">S/</InputAdornment>
+                          <InputAdornment position="start">{getCurrencySymbol(user?.currency || 'PEN')}</InputAdornment>
                         ),
                       }}
                       inputProps={{ step: 0.01, min: 0 }}

@@ -48,6 +48,8 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../config/api';
 import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns';
+import { formatCurrency, getCurrencySymbol } from '../utils/currencies';
+import { useAuth } from '../contexts/AuthContext';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -286,7 +288,7 @@ const PaymentScheduleImproved: React.FC = () => {
 
     calendarEvents.push({
       id: payment._id,
-      title: `💰 ${payment.name} ($${payment.amount})`,
+      title: `💰 ${payment.name} (${formatCurrency(payment.amount, user?.currency || 'PEN')})`,
       start: eventDate.toISOString(),
       end: eventDate.toISOString(),
       backgroundColor,
@@ -332,7 +334,7 @@ const PaymentScheduleImproved: React.FC = () => {
 
             calendarEvents.push({
               id: budgetPayment._id,
-              title: `💰 ${payment.name} ($${payment.amount})`,
+              title: `💰 ${payment.name} (${formatCurrency(payment.amount, user?.currency || 'PEN')})`,
               start: eventDate.toISOString(),
               end: eventDate.toISOString(),
               backgroundColor,

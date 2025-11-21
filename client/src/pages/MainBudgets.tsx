@@ -58,6 +58,8 @@ import axios from '../config/api';
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, differenceInDays } from 'date-fns';
 import { toast } from 'react-toastify';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { formatCurrency } from '../utils/currencies';
+import { useAuth } from '../contexts/AuthContext';
 import CreateMainBudgetDialog from '../components/CreateMainBudgetDialog';
 
 interface MainBudget {
@@ -191,6 +193,7 @@ const MainBudgets: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [periodFilter, setPeriodFilter] = useState<'all' | 'monthly' | 'quarterly' | 'yearly'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed' | 'draft'>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -1287,13 +1290,13 @@ const MainBudgets: React.FC = () => {
                       <Box>
                         <Typography variant="caption" color="textSecondary">Presupuesto</Typography>
                         <Typography variant="h6">
-                          S/ {weeklyBudget.totalBudget?.toFixed(2) || '0.00'}
+                          {formatCurrency(weeklyBudget.totalBudget || 0, user?.currency || 'PEN')}
                         </Typography>
                       </Box>
                       <Box>
                         <Typography variant="caption" color="textSecondary">Gastado</Typography>
                         <Typography variant="h6" color="primary">
-                          S/ {(weeklyBudget.totalBudget - weeklyBudget.remainingBudget)?.toFixed(2) || '0.00'}
+                          {formatCurrency((weeklyBudget.totalBudget - weeklyBudget.remainingBudget) || 0, user?.currency || 'PEN')}
                         </Typography>
                       </Box>
                     </Box>
