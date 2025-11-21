@@ -335,6 +335,7 @@ router.get('/:id', auth, async (req, res) => {
     }).populate('categoryId');
 
     console.log(`Found ${weekTransactions.length} expense transactions for week`);
+    console.log(`Week dates: ${budget.weekStartDate} to ${budget.weekEndDate}`);
 
     // Convert to plain object to modify
     const enhancedBudget = budget.toObject();
