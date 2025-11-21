@@ -154,15 +154,17 @@ const Layout: React.FC = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', width: '100%', overflow: 'hidden' }}>
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` },
+          ml: { xs: 0, sm: `${drawerWidth}px` },
           bgcolor: 'background.paper',
           color: 'text.primary',
           boxShadow: 1,
+          left: 0,
+          right: 0,
         }}
       >
         <Toolbar>

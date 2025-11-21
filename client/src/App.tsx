@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { Box } from '@mui/material';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
 import { CustomThemeProvider } from './contexts/ThemeContext';
@@ -12,6 +13,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { useEffect } from 'react';
 import './styles/responsive.css';
 import './styles/mobile.css';
+import './styles/overflow-fix.css';
 
 // Pages
 import Login from './pages/Login';
@@ -62,12 +64,13 @@ function App() {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <AuthProvider>
-          <CustomThemeProvider>
-            <SocketProvider>
-              <Router>
+    <Box sx={{ width: '100%', overflow: 'hidden' }}>
+      <QueryClientProvider client={queryClient}>
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <AuthProvider>
+            <CustomThemeProvider>
+              <SocketProvider>
+                <Router>
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
@@ -126,6 +129,7 @@ function App() {
         </AuthProvider>
       </LocalizationProvider>
     </QueryClientProvider>
+    </Box>
   );
 }
 

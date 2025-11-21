@@ -150,14 +150,17 @@ const Dashboard: React.FC = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <Card sx={{ height: '100%' }}>
-        <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-            <Box>
-              <Typography color="textSecondary" gutterBottom variant="body2">
+      <Card sx={{ height: '100%', width: '100%', overflow: 'hidden' }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" gap={1}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography color="textSecondary" gutterBottom variant="body2" noWrap>
                 {title}
               </Typography>
-              <Typography variant="h4" component="div" fontWeight="bold">
+              <Typography variant="h4" component="div" fontWeight="bold" sx={{ 
+                fontSize: { xs: '1.5rem', sm: '2rem' },
+                wordBreak: 'break-word'
+              }}>
                 {formatCurrency(value)}
               </Typography>
               {change !== undefined && (
@@ -279,7 +282,7 @@ const Dashboard: React.FC = () => {
       </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} mb={3}>
+      <Grid container spacing={{ xs: 1, sm: 2, md: 3 }} mb={3} sx={{ width: '100%', m: 0 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Ingresos"
@@ -319,14 +322,15 @@ const Dashboard: React.FC = () => {
       </Grid>
 
       {/* Charts Row */}
-      <Grid container spacing={3} mb={3}>
+      <Grid container spacing={{ xs: 1, sm: 2, md: 3 }} mb={3} sx={{ width: '100%', m: 0 }}>
         {/* Monthly Trend Chart */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: { xs: 2, sm: 3 }, height: { xs: 300, sm: 400 } }}>
             <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
               Tendencia Mensual
             </Typography>
-            <ResponsiveContainer width="100%" height="90%">
+            <Box sx={{ width: '100%', height: '90%', overflow: 'hidden' }}>
+              <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data.monthlyTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
@@ -353,6 +357,7 @@ const Dashboard: React.FC = () => {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            </Box>
           </Paper>
         </Grid>
 
@@ -362,7 +367,8 @@ const Dashboard: React.FC = () => {
             <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
               Gastos por Categoría
             </Typography>
-            <ResponsiveContainer width="100%" height="90%">
+            <Box sx={{ width: '100%', height: '90%', overflow: 'hidden' }}>
+              <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data.expensesByCategory}
@@ -381,12 +387,13 @@ const Dashboard: React.FC = () => {
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
               </PieChart>
             </ResponsiveContainer>
+            </Box>
           </Paper>
         </Grid>
       </Grid>
 
       {/* Budget Alerts and Recent Transactions */}
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 1, sm: 2, md: 3 }} sx={{ width: '100%', m: 0 }}>
         {/* Budget Alerts */}
         {data.budgets.length > 0 && (
           <Grid item xs={12} md={6}>

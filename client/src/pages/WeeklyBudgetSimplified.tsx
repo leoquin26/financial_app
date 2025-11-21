@@ -588,7 +588,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
       </Box>
 
       {/* Budget Overview */}
-      <Grid container spacing={2} mb={3}>
+      <Grid container spacing={{ xs: 1, sm: 2 }} mb={3} sx={{ width: '100%', m: 0 }}>
         <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <Card>
             <CardContent>
