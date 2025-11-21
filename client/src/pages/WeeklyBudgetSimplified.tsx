@@ -105,8 +105,8 @@ const WeeklyBudgetSimplified: React.FC = () => {
     notes: ''
   });
 
-  const currentWeekStart = startOfWeek(new Date());
-  const currentWeekEnd = endOfWeek(new Date());
+  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const currentWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
 
   // Fetch current week's budget or specific budget by ID
   const { data: currentBudget, isLoading, refetch: refetchBudget } = useQuery({

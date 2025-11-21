@@ -199,6 +199,15 @@ connectDB().then(async () => {
         console.error('Failed to ensure user preferences:', error);
     }
     
+    // Fix week dates to use Monday-Sunday
+    const fixWeekDates = require('./scripts/fixWeekDates');
+    try {
+        await fixWeekDates();
+        console.log('Week dates fixed to Monday-Sunday');
+    } catch (error) {
+        console.error('Failed to fix week dates:', error);
+    }
+    
     const PORT = process.env.PORT || 5000;
     
     // For Vercel, we export the app instead of listening

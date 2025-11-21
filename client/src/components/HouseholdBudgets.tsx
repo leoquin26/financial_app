@@ -153,7 +153,7 @@ const HouseholdBudgets: React.FC<HouseholdBudgetsProps> = ({ householdId }) => {
   }
 
   // Group budgets by week
-  const currentWeekStart = startOfWeek(new Date());
+  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const currentBudgets = sharedBudgets.filter(budget => 
     new Date(budget.weekStartDate).getTime() === currentWeekStart.getTime()
   );

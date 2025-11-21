@@ -121,7 +121,7 @@ const WeeklyBudget: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [totalBudget, setTotalBudget] = useState('');
-  const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(startOfWeek(new Date()));
+  const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [allocations, setAllocations] = useState<Array<{
     categoryId: string;
     name: string;
@@ -230,7 +230,7 @@ const WeeklyBudget: React.FC = () => {
     },
     onSuccess: (data: AutoAllocateResponse) => {
       // Convert auto-allocated data to form format
-      const weekStart = startOfWeek(new Date());
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
       const newAllocations = data.allocations.map(alloc => ({
         categoryId: alloc.categoryId,
         name: '',
@@ -256,7 +256,7 @@ const WeeklyBudget: React.FC = () => {
           categoryId: alloc.categoryId._id,
           name: alloc.name || '',
           amount: alloc.amount.toString(),
-          scheduledDate: alloc.scheduledDate ? format(new Date(alloc.scheduledDate), 'yyyy-MM-dd') : format(startOfWeek(new Date()), 'yyyy-MM-dd')
+          scheduledDate: alloc.scheduledDate ? format(new Date(alloc.scheduledDate), 'yyyy-MM-dd') : format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
         }))
       );
     }
@@ -271,7 +271,7 @@ const WeeklyBudget: React.FC = () => {
   };
 
   const handleAddAllocation = () => {
-    const weekStart = startOfWeek(new Date());
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
     setAllocations([...allocations, { 
       categoryId: '', 
       name: '', 
@@ -298,13 +298,13 @@ const WeeklyBudget: React.FC = () => {
     
     setIsAutoAllocating(true);
     autoAllocateMutation.mutate({
-      weekStartDate: startOfWeek(new Date()).toISOString(),
+      weekStartDate: startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString(),
       totalBudget: parseFloat(totalBudget)
     });
   };
 
   const handleSaveBudget = () => {
-    const weekStart = startOfWeek(new Date());
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
     
     const formattedAllocations = allocations
       .filter(alloc => alloc.categoryId && alloc.amount)

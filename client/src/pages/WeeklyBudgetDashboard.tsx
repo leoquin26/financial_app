@@ -61,8 +61,8 @@ const WeeklyBudgetDashboard: React.FC = () => {
   const { data: recentBudgets = [] } = useQuery({
     queryKey: ['recentWeeklyBudgets'],
     queryFn: async () => {
-      const endDate = endOfWeek(new Date());
-      const startDate = startOfWeek(subWeeks(new Date(), 7));
+      const endDate = endOfWeek(new Date(), { weekStartsOn: 1 });
+      const startDate = startOfWeek(subWeeks(new Date(), 7), { weekStartsOn: 1 });
       
       const response = await axios.get('/api/weekly-budget/range', {
         params: {
@@ -142,7 +142,7 @@ const WeeklyBudgetDashboard: React.FC = () => {
                     ${stats.currentWeekBudget.toFixed(2)}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
-                    {format(startOfWeek(new Date()), 'MMM d')} - {format(endOfWeek(new Date()), 'MMM d')}
+                    {format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'MMM d')} - {format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'MMM d')}
                   </Typography>
                 </Box>
                 <DashboardIcon color="primary" />

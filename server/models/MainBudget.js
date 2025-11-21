@@ -177,27 +177,37 @@ mainBudgetSchema.methods.generateWeeklyBudgets = function() {
   const startDate = new Date(this.period.startDate);
   const endDate = new Date(this.period.endDate);
   
+  // Align to Monday as start of week
   let currentWeekStart = new Date(startDate);
+  const dayOfWeek = currentWeekStart.getDay();
+  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday (0), go back 6 days; otherwise go to Monday
+  currentWeekStart.setDate(currentWeekStart.getDate() + daysToMonday);
+  currentWeekStart.setHours(0, 0, 0, 0);
+  
   let weekNumber = 1;
   
   while (currentWeekStart < endDate) {
     const currentWeekEnd = new Date(currentWeekStart);
-    currentWeekEnd.setDate(currentWeekEnd.getDate() + 6);
+    currentWeekEnd.setDate(currentWeekEnd.getDate() + 6); // Sunday
+    currentWeekEnd.setHours(23, 59, 59, 999);
     
     // Make sure we don't go past the period end date
     const weekEnd = currentWeekEnd > endDate ? endDate : currentWeekEnd;
     
-    weeklyBudgets.push({
-      weekNumber,
-      startDate: new Date(currentWeekStart),
-      endDate: new Date(weekEnd),
-      allocatedAmount: this.settings.weeklyBudgetAmount || this.calculateWeeklyAmount(),
-      status: 'pending',
-      budgetId: null // Explicitly set to null, not undefined
-    });
+    // Only include weeks that have at least one day within the budget period
+    if (weekEnd >= startDate) {
+      weeklyBudgets.push({
+        weekNumber,
+        startDate: new Date(currentWeekStart),
+        endDate: new Date(weekEnd),
+        allocatedAmount: this.settings.weeklyBudgetAmount || this.calculateWeeklyAmount(),
+        status: 'pending',
+        budgetId: null // Explicitly set to null, not undefined
+      });
+      weekNumber++;
+    }
     
     currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-    weekNumber++;
   }
   
   return weeklyBudgets;

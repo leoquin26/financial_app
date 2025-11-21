@@ -124,7 +124,7 @@ const BudgetTemplateSelector: React.FC<BudgetTemplateSelectorProps> = ({
         How would you like to create your budget?
       </Typography>
       <Typography variant="body2" color="textSecondary" mb={3}>
-        Week of {format(currentWeekStart, 'MMM d')} - {format(endOfWeek(currentWeekStart), 'MMM d, yyyy')}
+        Week of {format(currentWeekStart, 'MMM d')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'MMM d, yyyy')}
       </Typography>
 
       <Grid container spacing={3}>

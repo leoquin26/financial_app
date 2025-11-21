@@ -132,8 +132,8 @@ const PaymentScheduleComponent: React.FC = () => {
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ['payments', selectedWeek],
     queryFn: async () => {
-      const weekStart = startOfWeek(selectedWeek);
-      const weekEnd = endOfWeek(selectedWeek);
+      const weekStart = startOfWeek(selectedWeek, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(selectedWeek, { weekStartsOn: 1 });
       const response = await axios.get('/api/payments', {
         params: {
           from: format(weekStart, 'yyyy-MM-dd'),
@@ -157,8 +157,8 @@ const PaymentScheduleComponent: React.FC = () => {
   const { data: weeklyBudgets = [], isLoading: loadingBudgets } = useQuery({
     queryKey: ['weeklyBudgets', selectedWeek],
     queryFn: async () => {
-      const weekStart = startOfWeek(selectedWeek);
-      const weekEnd = endOfWeek(selectedWeek);
+      const weekStart = startOfWeek(selectedWeek, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(selectedWeek, { weekStartsOn: 1 });
       
       // Adjust for timezone - set to start and end of day
       weekStart.setHours(0, 0, 0, 0);
@@ -705,7 +705,7 @@ const PaymentScheduleComponent: React.FC = () => {
           {tabValue === 1 && (
             <Grid container spacing={2}>
               {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, index) => {
-                const dayDate = addDays(startOfWeek(selectedWeek), index === 6 ? 0 : index + 1);
+                const dayDate = addDays(startOfWeek(selectedWeek, { weekStartsOn: 1 }), index);
                 const dayPayments = payments.filter((p: PaymentSchedule) => 
                   isSameDay(parseISO(p.dueDate), dayDate)
                 );

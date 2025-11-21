@@ -119,8 +119,8 @@ const WeeklyBudgetContent: React.FC = () => {
     },
   });
 
-  const currentWeekStart = startOfWeek(new Date());
-  const currentWeekEnd = endOfWeek(new Date());
+  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const currentWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
 
   useEffect(() => {
     if (!currentBudget && !isLoading && !showTemplateSelector) {

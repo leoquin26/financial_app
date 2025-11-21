@@ -108,7 +108,7 @@ const WeeklyBudgetCalendar: React.FC<WeeklyBudgetCalendarProps> = ({ onWeekSelec
 
   const handleToday = () => {
     setCurrentMonth(new Date());
-    setSelectedWeek(startOfWeek(new Date()));
+    setSelectedWeek(startOfWeek(new Date(), { weekStartsOn: 1 }));
   };
 
   const handleWeekClick = (weekStart: Date) => {
@@ -203,7 +203,7 @@ const WeeklyBudgetCalendar: React.FC<WeeklyBudgetCalendarProps> = ({ onWeekSelec
       {/* Weeks Grid */}
       <Grid container spacing={2}>
         {weeks.map((weekStart) => {
-          const weekEnd = endOfWeek(weekStart);
+          const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
           const budget = getBudgetForWeek(weekStart);
           const isCurrentWeek = isSameWeek(weekStart, new Date());
           const isSelected = selectedWeek && isSameWeek(weekStart, selectedWeek);
