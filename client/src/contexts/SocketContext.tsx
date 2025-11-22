@@ -35,9 +35,31 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   useEffect(() => {
     if (user) {
       const socketUrl = process.env.REACT_APP_SERVER_URL || 'http://localhost:5000';
+      const isProduction = process.env.NODE_ENV === 'production';
+      
       const newSocket = io(socketUrl, {
-        transports: ['websocket', 'polling'],
+        // Use websocket only in production to avoid polling
+        transports: isProduction ? ['websocket'] : ['websocket', 'polling'],
         withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        autoConnect: true,
+        // Production optimizations
+        ...(isProduction && {
+          upgrade: false, // Don't try to upgrade in production
+          rememberUpgrade: false,
+          // Longer intervals in production
+          reconnectionDelay: 2000,
+          reconnectionDelayMax: 10000,
+        }),
+        // Development settings
+        ...(!isProduction && {
+          upgrade: true,
+          rememberUpgrade: true,
+        }),
       });
 
       newSocket.on('connect', () => {
@@ -49,6 +71,23 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       newSocket.on('disconnect', () => {
         console.log('Disconnected from server');
         setIsConnected(false);
+      });
+      
+      // Handle connection errors
+      newSocket.on('connect_error', (error) => {
+        console.error('Connection error:', error.message);
+        // In production, this often indicates websocket issues
+        if (process.env.NODE_ENV === 'production' && error.type === 'TransportError') {
+          console.warn('WebSocket connection failed. Check Railway websocket support.');
+        }
+      });
+      
+      // Handle rate limit and other errors
+      newSocket.on('error', (error: any) => {
+        console.error('Socket error:', error);
+        if (error?.data?.code === 'RATE_LIMIT_EXCEEDED') {
+          console.warn('Rate limit exceeded:', error.data.message);
+        }
       });
 
       // Listen for real-time updates

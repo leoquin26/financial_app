@@ -28,12 +28,13 @@ const connectDB = require('./config/database');
 // Initialize app
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:3000",
-        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
-    }
-});
+// Load socket configuration
+const socketConfig = require('./config/socketConfig');
+const socketRateLimit = require('./middleware/socketRateLimit');
+
+// Use appropriate config based on environment
+const isProduction = process.env.NODE_ENV === 'production';
+const io = socketIo(server, isProduction ? socketConfig.production : socketConfig.development);
 
 // Rate limiting
 const limiter = rateLimit({
@@ -146,21 +147,30 @@ io.on('connection', (socket) => {
         console.log(`User ${userId} joined their room`);
     });
     
-    // Handle transaction updates
-    socket.on('transaction-update', (data) => {
-        // Broadcast to all clients in the user's room
-        io.to(`user-${data.userId}`).emit('transaction-updated', data);
-    });
+    // Handle transaction updates with rate limiting
+    socket.on('transaction-update', 
+        socketRateLimit('transaction-update', 20, 60000), // 20 requests per minute
+        (data) => {
+            // Broadcast to all clients in the user's room
+            io.to(`user-${data.userId}`).emit('transaction-updated', data);
+        }
+    );
     
-    // Handle budget updates
-    socket.on('budget-update', (data) => {
-        io.to(`user-${data.userId}`).emit('budget-updated', data);
-    });
+    // Handle budget updates with rate limiting
+    socket.on('budget-update',
+        socketRateLimit('budget-update', 20, 60000), // 20 requests per minute
+        (data) => {
+            io.to(`user-${data.userId}`).emit('budget-updated', data);
+        }
+    );
     
-    // Handle category updates
-    socket.on('category-update', (data) => {
-        io.to(`user-${data.userId}`).emit('category-updated', data);
-    });
+    // Handle category updates with rate limiting
+    socket.on('category-update',
+        socketRateLimit('category-update', 20, 60000), // 20 requests per minute
+        (data) => {
+            io.to(`user-${data.userId}`).emit('category-updated', data);
+        }
+    );
     
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
