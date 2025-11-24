@@ -1,5 +1,6 @@
 /* Import critical mobile CSS first */
 @import url('./styles/critical-mobile.css');
+@import url('./styles/auth-pages.css');
 
 * {
   box-sizing: border-box;

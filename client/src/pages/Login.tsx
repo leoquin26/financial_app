@@ -22,6 +22,7 @@ import {
 import { useForm } from 'react-hook-form';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import '../styles/auth-pages.css';
 
 interface LoginForm {
   username: string;
@@ -72,13 +73,23 @@ const Login: React.FC = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Container 
+      component="main" 
+      maxWidth="xs" 
+      className="auth-container"
+      sx={{
+        maxWidth: { xs: '100%', sm: '444px' },
+        px: { xs: 2, sm: 3 },
+      }}
+    >
       <Box
         sx={{
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
+          py: { xs: 3, sm: 4 },
+          width: '100%',
         }}
       >
         <motion.div
@@ -86,7 +97,16 @@ const Login: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+          <Paper 
+            elevation={3}
+            className="auth-paper"
+            sx={{ 
+              p: { xs: 2, sm: 4 },
+              borderRadius: 2,
+              width: '100%',
+              maxWidth: { xs: 'calc(100vw - 32px)', sm: '400px' },
+              mx: 'auto',
+            }}>
             <Box
               sx={{
                 display: 'flex',
@@ -106,10 +126,20 @@ const Login: React.FC = () => {
               >
                 <AccountBalanceWallet sx={{ fontSize: 40 }} />
               </Box>
-              <Typography component="h1" variant="h4" fontWeight="bold">
+              <Typography 
+                component="h1" 
+                variant="h4" 
+                fontWeight="bold"
+                sx={{ fontSize: { xs: '1.75rem', sm: '2.125rem' } }}
+              >
                 FinanzaPro
               </Typography>
-              <Typography variant="body2" color="text.secondary" mt={1}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary" 
+                mt={1}
+                sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+              >
                 Organiza tus finanzas personales
               </Typography>
             </Box>
@@ -120,7 +150,7 @@ const Login: React.FC = () => {
               </Alert>
             )}
 
-            <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+            <Box component="form" onSubmit={handleSubmit(onSubmit)} className="auth-form">
               <TextField
                 margin="normal"
                 required

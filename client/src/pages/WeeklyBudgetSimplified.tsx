@@ -31,6 +31,8 @@ import {
   MenuItem,
   InputLabel,
   FormControl,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   AccountBalance as BudgetIcon,
@@ -90,6 +92,8 @@ const WeeklyBudgetSimplified: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { socket } = useSocket();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [totalBudget, setTotalBudget] = useState<string>('');
   const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -570,7 +574,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
               setOpenBudgetDialog(true);
             }}
             size="small"
-            fullWidth={{ xs: true, sm: false }}
+            fullWidth={isMobile}
           >
             {currentBudget?.totalBudget > 0 ? 'Edit Budget' : 'Set Budget'}
           </Button>

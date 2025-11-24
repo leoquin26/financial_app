@@ -12,6 +12,10 @@
   -webkit-box-sizing: border-box !important;
   -moz-box-sizing: border-box !important;
   box-sizing: border-box !important;
+}
+
+/* Prevent overflow but allow Container to have its own max-width */
+*:not(.MuiContainer-root):not(.auth-container):not(.auth-paper) {
   max-width: 100vw !important;
 }
 
@@ -57,17 +61,14 @@ input, textarea, select {
 
 /* iPhone specific viewport fixes */
 @supports (-webkit-touch-callout: none) {
-  /* iOS specific */
+  /* iOS specific - removed position: fixed as it causes issues */
   body {
-    position: fixed !important;
     width: 100% !important;
+    -webkit-overflow-scrolling: touch !important;
   }
   
   #root {
-    position: fixed !important;
     width: 100% !important;
-    height: 100% !important;
-    overflow: auto !important;
     -webkit-overflow-scrolling: touch !important;
   }
 }

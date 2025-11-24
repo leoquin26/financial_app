@@ -74,7 +74,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       });
       
       // Handle connection errors
-      newSocket.on('connect_error', (error) => {
+      newSocket.on('connect_error', (error: any) => {
         console.error('Connection error:', error.message);
         // In production, this often indicates websocket issues
         if (process.env.NODE_ENV === 'production' && error.type === 'TransportError') {

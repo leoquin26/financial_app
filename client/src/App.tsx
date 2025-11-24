@@ -59,12 +59,13 @@ function App() {
     setVH();
     window.addEventListener('resize', setVH);
     
-    // Fix iOS viewport issues
+    // Fix iOS viewport issues - removed position: fixed as it causes issues
     if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-      document.documentElement.style.position = 'fixed';
       document.documentElement.style.width = '100%';
-      document.documentElement.style.height = '100%';
-      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.minHeight = '100%';
+      document.documentElement.style.overflowX = 'hidden';
+      // Allow vertical scrolling
+      document.documentElement.style.overflowY = 'auto';
     }
     
     return () => {
@@ -73,7 +74,7 @@ function App() {
   }, []);
 
   return (
-    <Box sx={{ width: '100%', overflow: 'hidden' }}>
+    <Box sx={{ width: '100%', overflowX: 'hidden', minHeight: '100vh' }}>
       <QueryClientProvider client={queryClient}>
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <AuthProvider>

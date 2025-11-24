@@ -1,0 +1,102 @@
+/* ===== Authentication Pages Specific Styles ===== */
+
+/* Override aggressive container resets for auth pages */
+.auth-container {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Specific max-width for xs Container */
+.auth-container.MuiContainer-maxWidthXs {
+  max-width: 444px !important; /* Material-UI xs breakpoint */
+}
+
+/* Specific max-width for sm Container */
+.auth-container.MuiContainer-maxWidthSm {
+  max-width: 600px !important; /* Material-UI sm breakpoint */
+}
+
+/* Ensure auth forms are properly sized on all devices */
+.auth-paper {
+  width: 100% !important;
+  max-width: 400px !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Register form can be slightly wider */
+.register-paper {
+  max-width: 500px !important;
+}
+
+/* Mobile specific adjustments */
+@media (max-width: 600px) {
+  .auth-container {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  
+  .auth-paper {
+    max-width: calc(100vw - 24px);
+  }
+  
+  .register-paper {
+    max-width: calc(100vw - 24px);
+  }
+  
+  /* Ensure form fields don't overflow */
+  .auth-paper .MuiTextField-root {
+    width: 100%;
+  }
+  
+  /* Adjust button padding on mobile */
+  .auth-paper .MuiButton-root {
+    padding: 12px 16px;
+  }
+}
+
+/* iOS specific fixes for auth pages */
+@supports (-webkit-touch-callout: none) {
+  .auth-container {
+    padding-left: env(safe-area-inset-left, 16px) !important;
+    padding-right: env(safe-area-inset-right, 16px) !important;
+  }
+  
+  @media (max-width: 428px) {
+    .auth-paper {
+      max-width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 24px);
+    }
+  }
+}
+
+/* Prevent horizontal scroll on auth pages */
+.auth-container > * {
+  overflow-x: hidden;
+}
+
+/* Ensure proper spacing for auth form elements */
+.auth-form {
+  width: 100%;
+}
+
+.auth-form .MuiTextField-root {
+  margin-bottom: 16px;
+}
+
+.auth-form .MuiButton-root.MuiButton-contained {
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+/* Typography adjustments for better readability */
+@media (max-width: 360px) {
+  .auth-paper h1 {
+    font-size: 1.5rem !important;
+  }
+  
+  .auth-paper .MuiTypography-body2 {
+    font-size: 0.75rem !important;
+  }
+}

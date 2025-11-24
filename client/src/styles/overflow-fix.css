@@ -37,8 +37,8 @@ body {
   overflow-x: hidden !important;
 }
 
-/* Fix Material-UI components */
-.MuiContainer-root {
+/* Fix Material-UI components - but not auth pages */
+.MuiContainer-root:not(.auth-container) {
   padding-left: 8px !important;
   padding-right: 8px !important;
   max-width: 100% !important;
@@ -99,8 +99,8 @@ body {
 
 /* Mobile specific */
 @media (max-width: 600px) {
-  /* Remove all side margins on mobile */
-  .MuiContainer-root {
+  /* Remove all side margins on mobile - but not auth pages */
+  .MuiContainer-root:not(.auth-container) {
     padding-left: 4px !important;
     padding-right: 4px !important;
   }

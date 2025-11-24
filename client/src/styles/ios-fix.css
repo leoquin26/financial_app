@@ -48,8 +48,8 @@ body {
   }
 }
 
-/* Material-UI specific fixes for iOS */
-.MuiContainer-root {
+/* Material-UI specific fixes for iOS - but not auth pages */
+.MuiContainer-root:not(.auth-container) {
   width: 100% !important;
   max-width: 100% !important;
   padding-left: 12px !important;
@@ -133,8 +133,8 @@ body {
 
 /* iOS specific media query */
 @media screen and (max-width: 428px) { /* iPhone 16 Pro Max width */
-  /* Reduce all padding on mobile */
-  .MuiContainer-root {
+  /* Reduce all padding on mobile - but not auth pages */
+  .MuiContainer-root:not(.auth-container) {
     padding-left: 8px !important;
     padding-right: 8px !important;
   }
