@@ -524,7 +524,7 @@ const PaymentScheduleImproved: React.FC = () => {
                     Total
                   </Typography>
                 <Typography variant="h5" fontWeight="bold">
-                  ${stats.total.toFixed(2)}
+                  {formatCurrency(stats.total, user?.currency || 'PEN')}
                 </Typography>
                 <Typography variant="caption" color="textSecondary">
                   {uniquePayments.length} events
@@ -544,7 +544,7 @@ const PaymentScheduleImproved: React.FC = () => {
                     Paid
                   </Typography>
                   <Typography variant="h5" fontWeight="bold" color="success.main">
-                    ${stats.paid.toFixed(2)}
+                    {formatCurrency(stats.paid, user?.currency || 'PEN')}
                   </Typography>
                 </Box>
                 <PaidIcon color="success" fontSize="large" />
@@ -561,7 +561,7 @@ const PaymentScheduleImproved: React.FC = () => {
                     Pending
                   </Typography>
                   <Typography variant="h5" fontWeight="bold" color="warning.main">
-                    ${stats.pending.toFixed(2)}
+                    {formatCurrency(stats.pending, user?.currency || 'PEN')}
                   </Typography>
                 </Box>
                 <PendingIcon color="warning" fontSize="large" />
@@ -578,7 +578,7 @@ const PaymentScheduleImproved: React.FC = () => {
                     Overdue
                   </Typography>
                   <Typography variant="h5" fontWeight="bold" color="error.main">
-                    ${stats.overdue.toFixed(2)}
+                    {formatCurrency(stats.overdue, user?.currency || 'PEN')}
                   </Typography>
                 </Box>
                 <OverdueIcon color="error" fontSize="large" />
@@ -817,7 +817,7 @@ const PaymentScheduleImproved: React.FC = () => {
                         <ListItemSecondaryAction>
                           <Box display="flex" alignItems="center" gap={1}>
                             <Typography variant="h6" fontWeight="bold" sx={{ mr: 2 }}>
-                              ${payment.amount.toFixed(2)}
+                              {formatCurrency(payment.amount, user?.currency || 'PEN')}
                             </Typography>
                             {!payment.fromWeeklyBudget ? (
                               <>
@@ -947,7 +947,7 @@ const PaymentScheduleImproved: React.FC = () => {
               fullWidth
               required
               InputProps={{
-                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                startAdornment: <InputAdornment position="start">{getCurrencySymbol(user?.currency || 'PEN')}</InputAdornment>,
               }}
             />
             <FormControl fullWidth required>
