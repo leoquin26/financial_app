@@ -55,6 +55,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
   const [openDialog, setOpenDialog] = useState(false);
   const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
   const [pendingQuickTransaction, setPendingQuickTransaction] = useState<any>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<QuickPaymentForm>({
     defaultValues: {
@@ -113,9 +114,13 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
       }
       
       if (pendingQuickTransaction) {
+        // Check if we haven't already processed this transaction
+        console.log('Processing pending quick transaction after budget creation');
+        const transactionData = { ...pendingQuickTransaction };
+        setPendingQuickTransaction(null); // Clear immediately to prevent double submission
+        
         setTimeout(() => {
-          quickTransactionMutation.mutate(pendingQuickTransaction);
-          setPendingQuickTransaction(null);
+          quickTransactionMutation.mutate(transactionData);
         }, 500);
       }
       
@@ -142,15 +147,27 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
     setOpenDialog(false);
   };
 
-  const onSubmit = (data: QuickPaymentForm) => {
-    quickTransactionMutation.mutate({
-      amount: data.amount,
-      currency: data.currency,
-      description: data.description,
-      date: format(data.date, 'yyyy-MM-dd'),
-      paymentMethod: data.payment_method,
-      tags: data.tags ? data.tags.split(',').map(t => t.trim()) : ['quick-payment'],
-    });
+  const onSubmit = async (data: QuickPaymentForm) => {
+    // Prevent double submission
+    if (isSubmitting || quickTransactionMutation.isPending) {
+      console.log('Quick transaction already pending, ignoring duplicate submission');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    try {
+      await quickTransactionMutation.mutateAsync({
+        amount: data.amount,
+        currency: data.currency,
+        description: data.description,
+        date: format(data.date, 'yyyy-MM-dd'),
+        paymentMethod: data.payment_method,
+        tags: data.tags ? data.tags.split(',').map(t => t.trim()) : ['quick-payment'],
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Adjust position for mobile bottom navigation
@@ -347,7 +364,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
               variant="contained"
               color="secondary"
               startIcon={<FlashOnIcon />}
-              disabled={quickTransactionMutation.isPending}
+              disabled={isSubmitting || quickTransactionMutation.isPending}
             >
               Registrar Pago
             </Button>
