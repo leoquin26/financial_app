@@ -469,8 +469,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
       width: '100%', 
       maxWidth: '100%', 
       overflow: 'hidden',
-      px: { xs: 1, sm: 2, md: 3 }, 
-      py: { xs: 1, sm: 2 } 
+      p: 2
     }}>
       {/* Breadcrumbs */}
       {currentBudget?.parentBudgetId && (
@@ -593,8 +592,8 @@ const WeeklyBudgetSimplified: React.FC = () => {
       </Box>
 
       {/* Budget Overview */}
-      <Grid container spacing={{ xs: 1, sm: 2 }} mb={3} sx={{ width: '100%', m: 0 }}>
-        <Grid item xs={12} sm={6} md={4} lg={2.4}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -622,7 +621,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={4} lg={2.4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -649,7 +648,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={4} lg={2.4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -670,7 +669,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={4} lg={2.4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
             borderColor: currentBudget?.totalBudget && totalScheduled > currentBudget.totalBudget ? 'error.main' : undefined, 
             borderWidth: currentBudget?.totalBudget && totalScheduled > currentBudget.totalBudget ? 2 : 1 
@@ -700,7 +699,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
         </Grid>
 
         {/* Available Balance Card */}
-        <Grid item xs={12} sm={6} md={4} lg={2.4}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
             borderColor: 'success.main',
             borderWidth: 2,

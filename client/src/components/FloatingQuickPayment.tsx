@@ -14,6 +14,8 @@ import {
   Grid,
   Zoom,
   IconButton,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   FlashOn as FlashOnIcon,
@@ -48,6 +50,8 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [openDialog, setOpenDialog] = useState(false);
   const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
   const [pendingQuickTransaction, setPendingQuickTransaction] = useState<any>(null);
@@ -149,12 +153,28 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
     });
   };
 
-  // Position styles
+  // Adjust position for mobile bottom navigation
+  const bottomOffset = isMobile ? 90 : 24; // 90px to clear bottom navigation on mobile
+  const rightOffset = isMobile ? 16 : 24; // Less margin on mobile
+  
+  // Position styles with mobile adjustments
   const positionStyles = {
-    'bottom-right': { bottom: 24, right: 24 },
-    'bottom-left': { bottom: 24, left: 24 },
-    'top-right': { top: 24, right: 24 },
-    'top-left': { top: 24, left: 24 },
+    'bottom-right': { 
+      bottom: bottomOffset, 
+      right: rightOffset,
+      ...(isMobile && { 
+        bottom: 'calc(env(safe-area-inset-bottom) + 80px)' // iOS safe area + nav height
+      })
+    },
+    'bottom-left': { 
+      bottom: bottomOffset, 
+      left: rightOffset,
+      ...(isMobile && { 
+        bottom: 'calc(env(safe-area-inset-bottom) + 80px)'
+      })
+    },
+    'top-right': { top: 84, right: rightOffset },
+    'top-left': { top: 84, left: rightOffset },
   };
 
   return (
@@ -176,7 +196,13 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
       </Zoom>
 
       {/* Quick Payment Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>
             <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -330,7 +356,13 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
       </Dialog>
 
       {/* Budget Creation Dialog */}
-      <Dialog open={openBudgetDialog} onClose={() => setOpenBudgetDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openBudgetDialog} 
+        onClose={() => setOpenBudgetDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        fullScreen={isMobile}
+      >
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
             <AccountBalanceIcon color="primary" />

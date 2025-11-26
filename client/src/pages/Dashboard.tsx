@@ -221,7 +221,7 @@ const Dashboard: React.FC = () => {
   if (!data) return null;
 
   return (
-    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden', px: { xs: 1, sm: 2, md: 3 }, py: 2 }}>
+    <Box sx={{ width: '100%', p: 2 }}>
       {/* Header */}
       <Box 
         display="flex" 
@@ -282,7 +282,7 @@ const Dashboard: React.FC = () => {
       </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={{ xs: 1, sm: 2, md: 3 }} mb={3} sx={{ width: '100%', m: 0 }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Ingresos"
@@ -322,7 +322,7 @@ const Dashboard: React.FC = () => {
       </Grid>
 
       {/* Charts Row */}
-      <Grid container spacing={{ xs: 1, sm: 2, md: 3 }} mb={3} sx={{ width: '100%', m: 0 }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {/* Monthly Trend Chart */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: { xs: 2, sm: 3 }, height: { xs: 300, sm: 400 } }}>

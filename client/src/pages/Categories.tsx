@@ -256,7 +256,7 @@ const Categories: React.FC = () => {
   const userCategories = categories?.filter(c => c.userId !== null).length || 0;
 
   return (
-    <Box>
+    <Box sx={{ p: 2 }}>
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" fontWeight="bold">
@@ -277,7 +277,7 @@ const Categories: React.FC = () => {
       </Box>
 
       {/* Statistics */}
-      <Grid container spacing={3} mb={3}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 2 }}>
             <Box display="flex" alignItems="center" gap={2}>
@@ -329,7 +329,7 @@ const Categories: React.FC = () => {
 
       {/* Categories Grid */}
       {isLoading ? (
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           {[...Array(6)].map((_, i) => (
             <Grid item xs={12} sm={6} md={4} key={i}>
               <Skeleton variant="rectangular" height={150} sx={{ borderRadius: 2 }} />
@@ -351,7 +351,7 @@ const Categories: React.FC = () => {
           </Button>
         </Paper>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           {displayCategories.map((category) => (
             <Grid item xs={12} sm={6} md={4} key={category._id}>
               <motion.div

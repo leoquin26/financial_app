@@ -1,0 +1,123 @@
+/* Minimal spacing fixes without breaking layouts */
+
+/* Ensure all page components have consistent padding */
+main > div > div {
+  box-sizing: border-box;
+}
+
+/* Fix main container padding without breaking layout */
+.MuiContainer-root {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+@media (max-width: 600px) {
+  .MuiContainer-root {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* Ensure cards don't overflow */
+.MuiCard-root {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* Fix Grid container to prevent negative margin issues */
+.MuiGrid-container {
+  width: 100% !important;
+}
+
+/* Fix Grid container negative margins */
+.MuiGrid-container[class*="spacing"] {
+  width: calc(100% + 16px);
+  margin: -8px;
+}
+
+/* Fix Grid item padding for consistent spacing */
+.MuiGrid-spacing-xs-2 > .MuiGrid-item {
+  padding: 8px;
+}
+
+.MuiGrid-spacing-xs-3 > .MuiGrid-item {
+  padding: 12px;
+}
+
+/* Prevent horizontal scroll */
+body {
+  overflow-x: hidden;
+}
+
+#root {
+  overflow-x: hidden;
+}
+
+/* Fix chart containers */
+.recharts-responsive-container {
+  width: 100% !important;
+}
+
+/* Ensure proper spacing between sections */
+.MuiPaper-root + .MuiPaper-root,
+.MuiCard-root + .MuiCard-root {
+  margin-top: 16px;
+}
+
+/* Fix Typography margins */
+.MuiTypography-h4 {
+  margin-bottom: 16px;
+}
+
+.MuiTypography-h5 {
+  margin-bottom: 12px;
+}
+
+.MuiTypography-h6 {
+  margin-bottom: 8px;
+}
+
+/* Fix button spacing in groups */
+.MuiButton-root + .MuiButton-root {
+  margin-left: 8px;
+}
+
+/* Fix floating action button position on mobile */
+.MuiFab-root {
+  z-index: 1300 !important;
+}
+
+/* Ensure FAB is above bottom navigation on mobile */
+@media (max-width: 600px) {
+  .MuiFab-root[aria-label="quick payment"] {
+    bottom: 85px !important; /* Above bottom navigation */
+    right: 16px !important;
+  }
+}
+
+/* Account for iOS safe area */
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width: 600px) {
+    .MuiFab-root[aria-label="quick payment"] {
+      bottom: calc(85px + env(safe-area-inset-bottom)) !important;
+    }
+  }
+}
+
+/* Mobile specific fixes */
+@media (max-width: 600px) {
+  /* Stack elements vertically on mobile */
+  .MuiBox-root[display="flex"][flexDirection="row"] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  /* Reduce font sizes slightly on mobile */
+  .MuiTypography-h4 {
+    font-size: 1.5rem;
+  }
+  
+  .MuiTypography-h5 {
+    font-size: 1.25rem;
+  }
+}

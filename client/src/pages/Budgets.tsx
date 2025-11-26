@@ -265,7 +265,7 @@ const Budgets: React.FC = () => {
   const overallPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
 
   return (
-    <Box sx={{ width: '100%', px: { xs: 1, sm: 2, md: 3 }, py: 2 }}>
+    <Box sx={{ p: 2 }}>
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" fontWeight="bold">

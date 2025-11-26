@@ -545,7 +545,7 @@ const Transactions: React.FC = () => {
   const filteredCategories = categories || [];
 
   return (
-    <Box sx={{ width: '100%', overflow: 'hidden', px: { xs: 1, sm: 2, md: 3 }, py: 2 }}>
+    <Box sx={{ width: '100%', p: 2 }}>
       {/* Header */}
       <Box 
         display="flex" 

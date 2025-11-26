@@ -408,7 +408,7 @@ const MainBudgets: React.FC = () => {
   }
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3 } }}>
+    <Box sx={{ p: 2 }}>
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
         <Box>

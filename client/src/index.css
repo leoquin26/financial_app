@@ -1,8 +1,7 @@
 /* Import critical mobile CSS first */
 @import url('./styles/critical-mobile.css');
 @import url('./styles/auth-pages.css');
-@import url('./styles/layout-fixes.css');
-@import url('./styles/mui-overrides.css');
+@import url('./styles/spacing-fixes.css');
 
 * {
   box-sizing: border-box;

@@ -483,8 +483,7 @@ const PaymentScheduleImproved: React.FC = () => {
       width: '100%',
       maxWidth: '100%',
       overflow: 'hidden',
-      px: { xs: 1, sm: 2, md: 3 }, 
-      py: { xs: 1, sm: 2 } 
+      p: 2
     }}>
       {/* Header */}
       <Box 
@@ -515,7 +514,7 @@ const PaymentScheduleImproved: React.FC = () => {
 
       {/* Statistics Cards */}
       <Grid container spacing={2} mb={3}>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid item xs={12} sm={6} lg={2.4}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -535,7 +534,7 @@ const PaymentScheduleImproved: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid item xs={12} sm={6} lg={2.4}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -552,7 +551,7 @@ const PaymentScheduleImproved: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid item xs={12} sm={6} lg={2.4}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -569,7 +568,7 @@ const PaymentScheduleImproved: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid item xs={12} sm={6} lg={2.4}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -586,7 +585,7 @@ const PaymentScheduleImproved: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid item xs={12} sm={6} lg={2.4}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
