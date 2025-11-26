@@ -124,10 +124,13 @@ const InlinePaymentCreator: React.FC<InlinePaymentCreatorProps> = ({
         variant="outlined"
         startIcon={<AddIcon />}
         onClick={() => setIsExpanded(true)}
+        size="large"
         sx={{
           borderStyle: 'dashed',
           borderColor: categoryColor,
           color: categoryColor,
+          py: 1.5,
+          mt: 2,
           '&:hover': {
             borderStyle: 'dashed',
             backgroundColor: categoryColor + '10',
@@ -145,44 +148,96 @@ const InlinePaymentCreator: React.FC<InlinePaymentCreatorProps> = ({
         sx={{
           border: '2px solid',
           borderColor: categoryColor,
-          borderRadius: 1,
-          p: 2,
-          backgroundColor: categoryColor + '08',
+          borderRadius: 2,
+          p: 3,
+          backgroundColor: 'background.default',
+          mt: 2,
+          boxShadow: 1,
         }}
       >
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="subtitle2" fontWeight="bold">
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h6" fontWeight="bold">
             New Payment
           </Typography>
-          <IconButton size="small" onClick={handleReset}>
-            <CloseIcon fontSize="small" />
+          <IconButton onClick={handleReset}>
+            <CloseIcon />
           </IconButton>
         </Box>
 
-        <Box display="flex" flexDirection="column" gap={2}>
+        <Box display="flex" flexDirection="column" gap={3}>
           <TextField
-            size="small"
             fullWidth
             label="Payment Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={`e.g., ${categoryName} payment`}
+            variant="outlined"
+            sx={{
+              '& .MuiInputBase-root': {
+                backgroundColor: 'background.paper',
+                color: 'text.primary',
+              },
+              '& .MuiInputLabel-root': {
+                color: 'text.secondary',
+              },
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': {
+                  borderColor: 'rgba(255, 255, 255, 0.23)',
+                },
+                '&:hover fieldset': {
+                  borderColor: categoryColor,
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: categoryColor,
+                },
+                '& input': {
+                  color: 'text.primary',
+                  '&::placeholder': {
+                    color: 'text.secondary',
+                    opacity: 0.7,
+                  },
+                },
+              },
+            }}
           />
 
-          <Box display="flex" gap={2}>
+          <Box display="flex" flexDirection={{ xs: 'column', sm: 'row' }} gap={2}>
             <TextField
-              size="small"
               label="Amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               InputProps={{
                 startAdornment: (
-                  <InputAdornment position="start">
-                    <MoneyIcon fontSize="small" />
+                  <InputAdornment position="start" sx={{ color: 'text.primary' }}>
+                    <MoneyIcon />
                   </InputAdornment>
                 ),
               }}
-              sx={{ flex: 1 }}
+              sx={{ 
+                flex: 1,
+                '& .MuiInputBase-root': {
+                  backgroundColor: 'background.paper',
+                  color: 'text.primary',
+                },
+                '& .MuiInputLabel-root': {
+                  color: 'text.secondary',
+                },
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.23)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: categoryColor,
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: categoryColor,
+                  },
+                  '& input': {
+                    color: 'text.primary',
+                  },
+                },
+              }}
+              variant="outlined"
             />
 
             <DatePicker
@@ -191,34 +246,65 @@ const InlinePaymentCreator: React.FC<InlinePaymentCreatorProps> = ({
               onChange={setScheduledDate}
               slotProps={{
                 textField: {
-                  size: 'small',
-                  sx: { flex: 1 },
-                  helperText: 'You can schedule for any date',
+                  sx: { 
+                    flex: 1,
+                    '& .MuiInputBase-root': {
+                      backgroundColor: 'background.paper',
+                      color: 'text.primary',
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'text.secondary',
+                    },
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: 'rgba(255, 255, 255, 0.23)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: categoryColor,
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: categoryColor,
+                      },
+                      '& input': {
+                        color: 'text.primary',
+                      },
+                    },
+                  },
+                  fullWidth: true,
+                  variant: 'outlined',
                 },
               }}
             />
           </Box>
 
           {allocation > 0 && (
-            <Typography variant="caption" color="textSecondary">
-              Remaining budget: ${(allocation - currentTotal).toFixed(2)}
-            </Typography>
+            <Box sx={{ 
+              p: 2, 
+              bgcolor: 'background.paper', 
+              borderRadius: 1,
+              border: 1,
+              borderColor: 'divider'
+            }}>
+              <Typography variant="body2" color="textSecondary">
+                Remaining budget: <strong>${(allocation - currentTotal).toFixed(2)}</strong>
+              </Typography>
+            </Box>
           )}
 
-          <Box display="flex" gap={1} justifyContent="flex-end">
+          <Box display="flex" gap={2} justifyContent="flex-end">
             <Button
-              size="small"
               onClick={handleReset}
               color="inherit"
+              size="large"
             >
               Cancel
             </Button>
             <Button
-              size="small"
               variant="contained"
               startIcon={<SaveIcon />}
               onClick={handleSave}
               disabled={createPaymentMutation.isPending}
+              size="large"
               sx={{
                 backgroundColor: categoryColor,
                 '&:hover': {

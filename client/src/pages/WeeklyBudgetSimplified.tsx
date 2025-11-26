@@ -909,57 +909,104 @@ const WeeklyBudgetSimplified: React.FC = () => {
         </Paper>
       )}
 
-      <List>
+      <Grid container spacing={2}>
         {categories.filter(category => selectedCategories.has(category._id)).map((category) => {
           const categoryData = paymentsByCategory.find(c => c.category._id === category._id);
           const isExpanded = expandedCategories.has(category._id);
           const hasPayments = categoryData && categoryData.payments.length > 0;
 
           return (
-            <Paper key={category._id} sx={{ mb: 2, borderRadius: 2, boxShadow: 1 }}>
-              <ListItem
-                button
-                onClick={() => toggleCategory(category._id)}
-                sx={{
-                  p: { xs: 2, sm: 2.5 },
-                  borderRadius: 2,
+            <Grid item xs={12} sm={6} md={4} key={category._id}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
                   '&:hover': {
-                    backgroundColor: 'action.hover',
+                    transform: 'translateY(-4px)',
+                    boxShadow: 3,
                   },
                 }}
               >
-                <ListItemIcon>
-                  <Box
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 2,
-                      backgroundColor: category.color + '20',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <CategoryIcon sx={{ color: category.color }} />
+                <CardContent 
+                  onClick={() => toggleCategory(category._id)}
+                  sx={{ p: 2.5 }}
+                >
+                  <Box display="flex" alignItems="center" gap={2} mb={2}>
+                    <Box
+                      sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 2,
+                        backgroundColor: category.color + '20',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1.5rem',
+                      }}
+                    >
+                      {category.icon || <CategoryIcon sx={{ color: category.color }} />}
+                    </Box>
+                    <Box flex={1}>
+                      <Typography variant="h6" component="div">
+                        {category.name}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {hasPayments && categoryData
+                          ? `${formatCurrency(categoryData.totalAmount, user?.currency || 'PEN')} - ${categoryData.payments.length} payment${categoryData.payments.length > 1 ? 's' : ''}`
+                          : 'No payments scheduled'
+                        }
+                      </Typography>
+                    </Box>
+                    <IconButton size="small">
+                      {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    </IconButton>
                   </Box>
-                </ListItemIcon>
-                <ListItemText
-                  primary={category.name}
-                  secondary={
-                    hasPayments && categoryData
-                      ? `${formatCurrency(categoryData.totalAmount, user?.currency || 'PEN')} - ${categoryData.payments.length} payment${categoryData.payments.length > 1 ? 's' : ''}`
-                      : 'No payments scheduled'
-                  }
-                />
-                <ListItemSecondaryAction>
-                  <IconButton edge="end">
-                    {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
+                  
+                  {/* Budget Allocation Bar */}
+                  {(() => {
+                    const budgetCategory = currentBudget?.categories?.find((cat: any) => 
+                      (cat.categoryId._id || cat.categoryId) === category._id
+                    );
+                    const allocation = budgetCategory?.allocation || 0;
+                    const spent = categoryData?.totalAmount || 0;
+                    
+                    if (allocation > 0) {
+                      return (
+                        <Box sx={{ mt: 2 }}>
+                          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                            <Typography variant="caption" color="textSecondary">
+                              Budget
+                            </Typography>
+                            <Typography variant="caption" fontWeight="bold">
+                              {formatCurrency(spent, user?.currency || 'PEN')} / {formatCurrency(allocation, user?.currency || 'PEN')}
+                            </Typography>
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.min((spent / allocation) * 100, 100)}
+                            sx={{
+                              height: 8,
+                              borderRadius: 1,
+                              backgroundColor: 'action.hover',
+                              '& .MuiLinearProgress-bar': {
+                                borderRadius: 1,
+                                backgroundColor: 
+                                  spent > allocation ? 'error.main' : 
+                                  spent > allocation * 0.8 ? 'warning.main' : 
+                                  'success.main',
+                              },
+                            }}
+                          />
+                        </Box>
+                      );
+                    }
+                    return null;
+                  })()}
+                </CardContent>
 
               <Collapse in={isExpanded}>
-                <Box sx={{ px: { xs: 2, sm: 2.5 }, pb: 2, pt: 0 }}>
+                <Box sx={{ p: 2, pt: 0, borderTop: 1, borderColor: 'divider' }}>
                   {/* Existing Payments */}
                   {hasPayments && categoryData && (
                     <List dense sx={{ mb: 2 }}>
@@ -1049,10 +1096,11 @@ const WeeklyBudgetSimplified: React.FC = () => {
                   />
                 </Box>
               </Collapse>
-            </Paper>
+            </Card>
+            </Grid>
           );
         })}
-      </List>
+      </Grid>
 
       {/* Set Budget Dialog */}
       <Dialog open={openBudgetDialog} onClose={() => setOpenBudgetDialog(false)} maxWidth="xs" fullWidth>
