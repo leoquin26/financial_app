@@ -20,8 +20,11 @@ root.render(
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
 
-// Register service worker for PWA functionality
-serviceWorkerRegistration.register({
-  onSuccess: () => console.log('Service worker registered successfully'),
-  onUpdate: () => console.log('New app update available!')
-});
+// Temporarily unregister service worker to fix cache issues
+// Uncomment to re-enable PWA functionality in production
+serviceWorkerRegistration.unregister();
+
+// serviceWorkerRegistration.register({
+//   onSuccess: () => console.log('Service worker registered successfully'),
+//   onUpdate: () => console.log('New app update available!')
+// });

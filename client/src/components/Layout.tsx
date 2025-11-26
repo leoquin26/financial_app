@@ -300,8 +300,8 @@ const Layout: React.FC = () => {
       {/* Offline Indicator */}
       <OfflineIndicator />
       
-      {/* Version Check */}
-      <VersionCheck />
+      {/* Version Check - Temporarily disabled to fix reload loop */}
+      {/* <VersionCheck /> */}
       
       {/* Mobile Bottom Navigation */}
       {isMobile && (

@@ -10,11 +10,15 @@ const VersionCheck: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    // Get initial version
-    checkVersion();
+    // Only check version in production
+    if (process.env.NODE_ENV === 'production') {
+      // Get initial version
+      checkVersion();
 
-    // Set up periodic version checks
-    const interval = setInterval(checkVersion, VERSION_CHECK_INTERVAL);
+      // Set up periodic version checks
+      const interval = setInterval(checkVersion, VERSION_CHECK_INTERVAL);
+      return () => clearInterval(interval);
+    }
 
     // Listen for service worker messages
     if ('serviceWorker' in navigator) {
@@ -31,8 +35,6 @@ const VersionCheck: React.FC = () => {
         setUpdateAvailable(true);
       });
     }
-
-    return () => clearInterval(interval);
   }, []);
 
   const checkVersion = async () => {

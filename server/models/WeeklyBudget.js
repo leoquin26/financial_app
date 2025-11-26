@@ -164,8 +164,44 @@ const weeklyBudgetSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  // Manual status override (if user sets it)
+  manualStatus: {
+    type: String,
+    enum: ['active', 'completed', 'upcoming', 'past'],
+    default: null
   }
 });
+
+// Virtual property to calculate status based on dates
+weeklyBudgetSchema.virtual('status').get(function() {
+  // If manual status is set, use it
+  if (this.manualStatus) {
+    return this.manualStatus;
+  }
+  
+  // Otherwise calculate based on dates
+  const now = new Date();
+  const weekStart = new Date(this.weekStartDate);
+  const weekEnd = new Date(this.weekEndDate);
+  
+  // Set time to start of day for accurate comparison
+  now.setHours(0, 0, 0, 0);
+  weekStart.setHours(0, 0, 0, 0);
+  weekEnd.setHours(23, 59, 59, 999);
+  
+  if (now < weekStart) {
+    return 'upcoming';
+  } else if (now >= weekStart && now <= weekEnd) {
+    return 'active';
+  } else {
+    return 'past';
+  }
+});
+
+// Ensure virtual fields are included in JSON
+weeklyBudgetSchema.set('toJSON', { virtuals: true });
+weeklyBudgetSchema.set('toObject', { virtuals: true });
 
 // Update remaining budget when allocations change
 weeklyBudgetSchema.methods.updateRemainingBudget = function() {

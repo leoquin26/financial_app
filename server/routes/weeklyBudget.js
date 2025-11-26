@@ -7,6 +7,7 @@ const PaymentSchedule = require('../models/PaymentSchedule');
 const Transaction = require('../models/Transaction');
 const Category = require('../models/Category');
 const MainBudget = require('../models/MainBudget');
+const { format } = require('date-fns');
 
 // Helper function to generate budget insights
 async function generateBudgetInsights(userId, budget = null) {
@@ -2204,12 +2205,122 @@ router.delete('/:budgetId/payment/:paymentId', auth, async (req, res) => {
   }
 });
 
-// Create quick monthly budget
+// Create quick monthly budget with weekly breakdown
 router.post('/quick-monthly', auth, async (req, res) => {
   try {
-    const { monthlyIncome } = req.body;
+    const { monthlyIncome, createFullMonth = false } = req.body;
     
-    // Get current week dates
+    // If createFullMonth is true, create weekly budgets for the entire month
+    if (createFullMonth) {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      // Get all categories
+      const Category = require('../models/Category');
+      const categories = await Category.find({
+        $or: [
+          { userId: null, type: 'expense' },
+          { userId: req.user._id, type: 'expense' }
+        ]
+      });
+      
+      const createdBudgets = [];
+      
+      // Find all Mondays in the month
+      const weeks = [];
+      
+      // Start from the Monday of the week containing the 1st
+      const firstOfMonth = new Date(monthStart);
+      const firstDayOfWeek = firstOfMonth.getDay();
+      const daysUntilMonday = firstDayOfWeek === 0 ? -6 : 1 - firstDayOfWeek;
+      
+      let currentMonday = new Date(firstOfMonth);
+      currentMonday.setDate(firstOfMonth.getDate() + daysUntilMonday);
+      currentMonday.setHours(0, 0, 0, 0);
+      
+      console.log('Month:', format(monthStart, 'MMMM yyyy'));
+      console.log('First Monday of month period:', format(currentMonday, 'yyyy-MM-dd'));
+      
+      // Find all weeks that touch the current month
+      while (currentMonday <= monthEnd || (currentMonday <= monthStart && new Date(currentMonday).setDate(currentMonday.getDate() + 6) >= monthStart)) {
+        const weekStart = new Date(currentMonday);
+        const weekEnd = new Date(currentMonday);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+        
+        // Only include weeks that overlap with the month
+        if (weekEnd >= monthStart && weekStart <= monthEnd) {
+          weeks.push({ start: new Date(weekStart), end: new Date(weekEnd) });
+          console.log(`Week: ${format(weekStart, 'MMM dd')} - ${format(weekEnd, 'MMM dd')}`);
+        }
+        
+        // Move to next Monday
+        currentMonday.setDate(currentMonday.getDate() + 7);
+      }
+      
+      // Now create budgets for each week
+      for (const week of weeks) {
+        // Check if this week already has a budget
+        const existingBudget = await WeeklyBudget.findOne({
+          userId: req.user._id,
+          weekStartDate: { $lte: week.end },
+          weekEndDate: { $gte: week.start }
+        });
+        
+        if (!existingBudget) {
+          // Create categories array for the budget - but with 0 allocation initially
+          const budgetCategories = [];
+          
+          // Add Quick Payment category with 0 allocation
+          const quickPaymentCategory = categories.find(c => c.name === 'Quick Payment');
+          if (quickPaymentCategory) {
+            budgetCategories.push({
+              categoryId: quickPaymentCategory._id,
+              allocation: 0, // User must configure
+              payments: []
+            });
+          }
+          
+          // Add other essential categories with 0 allocation
+          const essentialCategories = ['Alimentación', 'Transporte', 'Otros Gastos'];
+          categories.forEach(category => {
+            if (essentialCategories.includes(category.name)) {
+              budgetCategories.push({
+                categoryId: category._id,
+                allocation: 0, // User must configure
+                payments: []
+              });
+            }
+          });
+          
+          // Total budget starts at 0 - user must configure
+          const totalBudget = 0;
+          
+          // Create the weekly budget
+          const weeklyBudget = new WeeklyBudget({
+            userId: req.user._id,
+            weekStartDate: week.start,
+            weekEndDate: week.end,
+            totalBudget: totalBudget,
+            remainingBudget: totalBudget,
+            categories: budgetCategories
+          });
+          
+          await weeklyBudget.save();
+          await weeklyBudget.populate('categories.categoryId');
+          createdBudgets.push(weeklyBudget);
+        }
+      }
+      
+      return res.json({
+        message: `${createdBudgets.length} presupuestos semanales creados para el mes`,
+        weeklyBudgets: createdBudgets,
+        weeklyBudget: createdBudgets[0] // Return first week for navigation
+      });
+    }
+    
+    // Original behavior: create only current week
     const now = new Date();
     const weekStart = new Date(now);
     // Calculate Monday as start of week
@@ -2263,30 +2374,30 @@ router.post('/quick-monthly', auth, async (req, res) => {
       // Create categories array for the budget
       const budgetCategories = [];
       
-      // Add Quick Payment category with default allocation
+      // Add Quick Payment category with 0 allocation
       const quickPaymentCategory = categories.find(c => c.name === 'Quick Payment');
       if (quickPaymentCategory) {
         budgetCategories.push({
           categoryId: quickPaymentCategory._id,
-          allocation: 125, // 500 monthly / 4 weeks
+          allocation: 0, // User must configure
           payments: []
         });
       }
       
-      // Add other essential categories
+      // Add other essential categories with 0 allocation
       const essentialCategories = ['Alimentación', 'Transporte', 'Otros Gastos'];
       categories.forEach(category => {
         if (essentialCategories.includes(category.name)) {
           budgetCategories.push({
             categoryId: category._id,
-            allocation: 75, // 300 monthly / 4 weeks
+            allocation: 0, // User must configure
             payments: []
           });
         }
       });
       
-      // Calculate total budget
-      const totalBudget = budgetCategories.reduce((sum, cat) => sum + cat.allocation, 0);
+      // Total budget starts at 0 - user must configure
+      const totalBudget = 0;
       
       // Create the weekly budget
       weeklyBudget = new WeeklyBudget({

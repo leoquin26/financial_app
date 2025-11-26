@@ -6,7 +6,8 @@ const Category = require('../models/Category');
 const PaymentSchedule = require('../models/PaymentSchedule');
 const { authMiddleware: auth } = require('../middleware/auth');
 const mongoose = require('mongoose');
-const { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } = require('date-fns');
+const { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, format } = require('date-fns');
+const { es } = require('date-fns/locale');
 
 // Get all main budgets for user
 router.get('/', auth, async (req, res) => {
@@ -710,6 +711,85 @@ router.delete('/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting budget:', error);
     res.status(500).json({ error: 'Failed to delete budget' });
+  }
+});
+
+// Create quick monthly budget (full month, not weekly)
+router.post('/quick-monthly', auth, async (req, res) => {
+  try {
+    const { type } = req.body;
+    
+    if (type !== 'monthly') {
+      return res.status(400).json({ error: 'Invalid budget type' });
+    }
+    
+    // Get current month dates
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    
+    // Check if a budget already exists for this month
+    const existingBudget = await MainBudget.findOne({
+      userId: req.user._id,
+      'period.startDate': { $lte: endDate },
+      'period.endDate': { $gte: startDate },
+      status: { $ne: 'deleted' }
+    });
+    
+    if (existingBudget) {
+      return res.status(400).json({ 
+        error: 'Ya existe un presupuesto para este mes',
+        budget: existingBudget 
+      });
+    }
+    
+    // Get default categories
+    const Category = require('../models/Category');
+    const defaultCategories = await Category.find({
+      $or: [
+        { isDefault: true },
+        { name: { $in: ['Alimentación', 'Transporte', 'Otros Gastos'] } }
+      ]
+    }).limit(4);
+    
+    // Calculate monthly budget (assuming 4 weeks)
+    const weeklyAmount = 350; // Default weekly amount
+    const monthlyBudget = weeklyAmount * 4;
+    
+    // Create allocations with default categories
+    const allocations = defaultCategories.map(category => ({
+      categoryId: category._id,
+      amount: monthlyBudget / defaultCategories.length, // Divide equally
+      spent: 0
+    }));
+    
+    // Create the main budget
+    const mainBudget = new MainBudget({
+      userId: req.user._id,
+      name: `Presupuesto ${format(startDate, 'MMMM yyyy', { locale: es })}`,
+      period: {
+        type: 'monthly',
+        startDate,
+        endDate
+      },
+      totalBudget: monthlyBudget,
+      allocations,
+      status: 'active',
+      autoGenerateWeekly: false // Don't generate weekly budgets for full month
+    });
+    
+    await mainBudget.save();
+    
+    // Don't generate weekly budgets for a full monthly budget
+    // The user will manage the entire month as one budget
+    
+    res.json({
+      message: 'Presupuesto mensual creado exitosamente',
+      budget: mainBudget
+    });
+  } catch (error) {
+    console.error('Error creating quick monthly budget:', error);
+    res.status(500).json({ error: 'Error al crear presupuesto mensual' });
   }
 });
 

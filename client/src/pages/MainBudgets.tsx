@@ -61,6 +61,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { formatCurrency } from '../utils/currencies';
 import { useAuth } from '../contexts/AuthContext';
 import CreateMainBudgetDialog from '../components/CreateMainBudgetDialog';
+import BudgetTypeDialog from '../components/BudgetTypeDialog';
 
 interface MainBudget {
   _id: string;
@@ -200,11 +201,54 @@ const MainBudgets: React.FC = () => {
   const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [budgetToDelete, setBudgetToDelete] = useState<MainBudget | null>(null);
+  const [budgetTypeDialogOpen, setBudgetTypeDialogOpen] = useState(false);
   
-  // Force recalculation when returning from other pages
+  // Handle budget type selection
+  const handleBudgetTypeSelect = async (type: 'weekly' | 'monthly') => {
+    try {
+      if (type === 'weekly') {
+        // Create weekly budgets for the entire month
+        const response = await axios.post('/api/weekly-budget/quick-monthly', {
+          monthlyIncome: 0,
+          createFullMonth: true // Create all weeks of the month
+        });
+        
+        if (response.data.weeklyBudgets && response.data.weeklyBudgets.length > 0) {
+          toast.success(response.data.message || 'Presupuestos semanales creados exitosamente!');
+          // Navigate to the main budgets page to see all weeks
+          queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+          queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
+          // Stay on the main budgets page to see the weekly breakdown
+        } else if (response.data.weeklyBudget?._id) {
+          toast.success('Presupuesto semanal creado exitosamente!');
+          navigate(`/budgets/week/${response.data.weeklyBudget._id}`);
+        }
+      } else {
+        // Create full monthly budget
+        const response = await axios.post('/api/main-budget/quick-monthly', {
+          type: 'monthly'
+        });
+        
+        if (response.data.budget?._id) {
+          toast.success('Presupuesto mensual creado exitosamente!');
+          navigate(`/budgets/${response.data.budget._id}`);
+        }
+      }
+      
+      queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Error al crear presupuesto');
+    }
+  };
+  
+  // Refresh data when returning from other pages (but not on every render)
   React.useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
-    queryClient.invalidateQueries({ queryKey: ['availableIncome'] });
+    // Only invalidate if we're actually navigating to this page
+    if (location.pathname === '/budgets' || location.pathname === '/budgets/') {
+      queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['availableIncome'] });
+    }
   }, [location.pathname, queryClient]);
 
   // Fetch main budgets
@@ -218,8 +262,8 @@ const MainBudgets: React.FC = () => {
       const response = await axios.get('/api/main-budgets', { params });
       return response.data as MainBudget[];
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
-    refetchOnWindowFocus: true, // Refetch when window regains focus
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes instead of 30 seconds
+    refetchOnWindowFocus: false, // Disable auto refetch on focus to prevent loops
   });
 
   // Fetch available income (total income - total allocated to budgets)
@@ -229,8 +273,8 @@ const MainBudgets: React.FC = () => {
       const response = await axios.get('/api/dashboard/available-income');
       return response.data;
     },
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    refetchOnWindowFocus: false, // Disable to prevent loops
   });
 
   // Fetch all weekly budgets to show them alongside main budgets
@@ -303,6 +347,8 @@ const MainBudgets: React.FC = () => {
   );
 
   // Auto-recalculate budgets where total doesn't match sum of weekly allocations
+  // Disabled for now to prevent infinite loop - can be triggered manually with Refresh button
+  /*
   React.useEffect(() => {
     const recalculateBudgets = async () => {
       let hasRecalculated = false;
@@ -341,6 +387,7 @@ const MainBudgets: React.FC = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [activeBudgets.length, queryClient]); // Run when number of active budgets changes
+  */
 
   if (isLoading) {
     return (
@@ -874,24 +921,7 @@ const MainBudgets: React.FC = () => {
                   variant="outlined"
                   size="large"
                   startIcon={<CalendarIcon />}
-                  onClick={async () => {
-                    // Use the same quick monthly budget creation as quick payment
-                    try {
-                      const response = await axios.post('/api/weekly-budget/quick-monthly', {
-                        monthlyIncome: 0
-                      });
-                      
-                      if (response.data.weeklyBudget?._id) {
-                        toast.success('Presupuesto rápido creado exitosamente!');
-                        navigate(`/budgets/week/${response.data.weeklyBudget._id}`);
-                      }
-                      
-                      queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
-                      queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
-                    } catch (error) {
-                      toast.error('Failed to create quick budget');
-                    }
-                  }}
+                  onClick={() => setBudgetTypeDialogOpen(true)}
                   sx={{ px: 4 }}
                 >
                   Quick Start This Month
@@ -1279,18 +1309,35 @@ const MainBudgets: React.FC = () => {
                         </Typography>
                       </Box>
                       <Chip 
-                        label="activo" 
+                        label={
+                          weeklyBudget.status === 'active' ? 'activo' :
+                          weeklyBudget.status === 'upcoming' ? 'próximo' :
+                          weeklyBudget.status === 'past' ? 'pasado' :
+                          weeklyBudget.status || 'activo'
+                        }
                         size="small"
-                        color="success"
-                        icon={<PlayArrowIcon />}
+                        color={
+                          weeklyBudget.status === 'active' ? 'success' :
+                          weeklyBudget.status === 'upcoming' ? 'info' :
+                          weeklyBudget.status === 'past' ? 'default' :
+                          'success'
+                        }
+                        icon={
+                          weeklyBudget.status === 'active' ? <PlayArrowIcon /> :
+                          weeklyBudget.status === 'upcoming' ? <ScheduleIcon /> :
+                          weeklyBudget.status === 'past' ? <CheckIcon /> :
+                          <PlayArrowIcon />
+                        }
                       />
                     </Box>
                     
                     <Box display="flex" justifyContent="space-between" mb={2}>
                       <Box>
                         <Typography variant="caption" color="textSecondary">Presupuesto</Typography>
-                        <Typography variant="h6">
-                          {formatCurrency(weeklyBudget.totalBudget || 0, user?.currency || 'PEN')}
+                        <Typography variant="h6" color={weeklyBudget.totalBudget === 0 ? "warning.main" : "text.primary"}>
+                          {weeklyBudget.totalBudget === 0 
+                            ? "No configurado" 
+                            : formatCurrency(weeklyBudget.totalBudget, user?.currency || 'PEN')}
                         </Typography>
                       </Box>
                       <Box>
@@ -1310,11 +1357,11 @@ const MainBudgets: React.FC = () => {
                     <Button
                       fullWidth
                       variant="contained"
-                      color="primary"
+                      color={weeklyBudget.totalBudget === 0 ? "warning" : "primary"}
                       endIcon={<ArrowForwardIcon />}
                       sx={{ borderRadius: 2 }}
                     >
-                      Ver Detalles
+                      {weeklyBudget.totalBudget === 0 ? "Configurar Presupuesto" : "Ver Detalles"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -1408,6 +1455,13 @@ const MainBudgets: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* Budget Type Selection Dialog */}
+      <BudgetTypeDialog
+        open={budgetTypeDialogOpen}
+        onClose={() => setBudgetTypeDialogOpen(false)}
+        onSelect={handleBudgetTypeSelect}
+      />
     </Box>
   );
 };

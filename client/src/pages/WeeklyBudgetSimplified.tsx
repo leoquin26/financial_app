@@ -755,8 +755,29 @@ const WeeklyBudgetSimplified: React.FC = () => {
         </Paper>
       )}
 
+      {/* Not Configured Warning */}
+      {currentBudget && currentBudget.totalBudget === 0 && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            ⚠️ Presupuesto No Configurado
+          </Typography>
+          <Typography variant="body2" paragraph>
+            Esta semana no tiene un presupuesto configurado. Por favor, configura tu presupuesto semanal para comenzar a administrar tus gastos.
+          </Typography>
+          <Button
+            variant="contained"
+            color="warning"
+            startIcon={<EditIcon />}
+            onClick={() => setOpenBudgetDialog(true)}
+            size="small"
+          >
+            Configurar Presupuesto Ahora
+          </Button>
+        </Alert>
+      )}
+
       {/* Instructions */}
-      {weeklyPayments.length === 0 && (
+      {!currentBudget || (currentBudget && weeklyPayments.length === 0 && currentBudget.totalBudget > 0) && (
         <Alert severity="info" sx={{ mb: 3 }}>
           <Typography variant="subtitle2" gutterBottom>
             Getting Started:
