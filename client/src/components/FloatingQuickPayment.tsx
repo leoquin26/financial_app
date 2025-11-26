@@ -16,6 +16,11 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
+  InputAdornment,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   FlashOn as FlashOnIcon,
@@ -218,7 +223,13 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
         onClose={handleCloseDialog} 
         maxWidth="sm" 
         fullWidth
-        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            m: isMobile ? 1 : 2,
+            maxHeight: isMobile ? '90vh' : '80vh',
+            width: isMobile ? 'calc(100% - 16px)' : '100%',
+          }
+        }}
       >
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>
@@ -233,11 +244,11 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
             </Box>
           </DialogTitle>
           <DialogContent>
-            <Alert severity="info" sx={{ mb: 2 }}>
+            <Alert severity="info" sx={{ mb: 3, mt: 1 }}>
               Los pagos rápidos se registran automáticamente en la categoría "Quick Payment"
             </Alert>
             
-            <Grid container spacing={2}>
+            <Grid container spacing={3}>
               <Grid item xs={12} sm={6}>
                 <Controller
                   name="amount"
@@ -255,7 +266,11 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
                       error={!!errors.amount}
                       helperText={errors.amount?.message}
                       InputProps={{
-                        startAdornment: <Typography sx={{ mr: 1 }}>S/</Typography>,
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            {user?.currency === 'USD' ? '$' : 'S/'}
+                          </InputAdornment>
+                        ),
                       }}
                     />
                   )}
@@ -267,19 +282,19 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
                   name="payment_method"
                   control={control}
                   render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      label="Método de pago"
-                      fullWidth
-                      SelectProps={{ native: true }}
-                    >
-                      <option value="cash">Efectivo</option>
-                      <option value="debit_card">Tarjeta de Débito</option>
-                      <option value="credit_card">Tarjeta de Crédito</option>
-                      <option value="transfer">Transferencia</option>
-                      <option value="other">Otro</option>
-                    </TextField>
+                    <FormControl fullWidth>
+                      <InputLabel>Método de pago</InputLabel>
+                      <Select
+                        {...field}
+                        label="Método de pago"
+                      >
+                        <MenuItem value="cash">Efectivo</MenuItem>
+                        <MenuItem value="debit_card">Tarjeta de Débito</MenuItem>
+                        <MenuItem value="credit_card">Tarjeta de Crédito</MenuItem>
+                        <MenuItem value="transfer">Transferencia</MenuItem>
+                        <MenuItem value="other">Otro</MenuItem>
+                      </Select>
+                    </FormControl>
                   )}
                 />
               </Grid>
@@ -378,7 +393,13 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
         onClose={() => setOpenBudgetDialog(false)} 
         maxWidth="sm" 
         fullWidth
-        fullScreen={isMobile}
+        sx={{
+          '& .MuiDialog-paper': {
+            m: isMobile ? 1 : 2,
+            maxHeight: isMobile ? '90vh' : '80vh',
+            width: isMobile ? 'calc(100% - 16px)' : '100%',
+          }
+        }}
       >
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>

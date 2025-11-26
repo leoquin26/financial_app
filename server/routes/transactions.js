@@ -332,7 +332,7 @@ router.post('/', authMiddleware, async (req, res) => {
 // Quick transaction - links to current active budget
 router.post('/quick', authMiddleware, async (req, res) => {
     try {
-        const { amount, description, date, paymentMethod, tags, currency } = req.body;
+        const { amount, description, date, paymentMethod, tags, currency, idempotencyKey } = req.body;
         
         // Always use the Quick Payment category
         const quickPaymentCategory = await Category.findOne({
@@ -448,6 +448,25 @@ router.post('/quick', authMiddleware, async (req, res) => {
             categoriesCount: currentBudget.categories?.length,
             categoryIds: currentBudget.categories?.map(c => c.categoryId.toString())
         });
+        
+        // Check for duplicate transaction in the last 5 seconds to prevent double submission
+        const fiveSecondsAgo = new Date(Date.now() - 5000);
+        const duplicateCheck = await Transaction.findOne({
+            userId: req.userId,
+            amount: numAmount,
+            description: description || `Quick payment - ${category.name}`,
+            categoryId: categoryId,
+            createdAt: { $gte: fiveSecondsAgo }
+        });
+
+        if (duplicateCheck) {
+            console.log('Duplicate quick transaction detected within 5 seconds, returning existing transaction');
+            return res.json({
+                success: true,
+                message: 'Pago rápido ya registrado',
+                transaction: duplicateCheck
+            });
+        }
         
         // Create the transaction (always expense for quick transactions)
         const transaction = new Transaction({

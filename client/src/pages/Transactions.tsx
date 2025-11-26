@@ -145,6 +145,7 @@ const Transactions: React.FC = () => {
   const [openQuickDialog, setOpenQuickDialog] = useState(false);
   const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
   const [pendingQuickTransaction, setPendingQuickTransaction] = useState<any>(null);
+  const [isSubmittingQuick, setIsSubmittingQuick] = useState(false);
 
   // Form
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<TransactionForm>({
@@ -298,6 +299,8 @@ const Transactions: React.FC = () => {
       return response.data;
     },
     onSuccess: (data) => {
+      setIsSubmittingQuick(false); // Reset submission state
+      
       // Check if budget creation is required
       if (data.requiresBudget) {
         setPendingQuickTransaction(data.transactionData);
@@ -321,6 +324,7 @@ const Transactions: React.FC = () => {
       }
     },
     onError: (error: any) => {
+      setIsSubmittingQuick(false); // Reset submission state on error
       toast.error(error.response?.data?.error || 'Error al registrar pago rápido');
     },
   });
@@ -344,10 +348,13 @@ const Transactions: React.FC = () => {
       
       // Now retry the quick transaction
       if (pendingQuickTransaction) {
+        // Copy the data and clear the pending transaction immediately to prevent double submission
+        const transactionData = { ...pendingQuickTransaction };
+        setPendingQuickTransaction(null); // Clear BEFORE submitting
+        
         // Small delay to ensure budget is properly loaded
         setTimeout(() => {
-          quickTransactionMutation.mutate(pendingQuickTransaction);
-          setPendingQuickTransaction(null);
+          quickTransactionMutation.mutate(transactionData);
         }, 500);
       }
       
@@ -529,6 +536,14 @@ const Transactions: React.FC = () => {
   };
 
   const onSubmitQuick = (data: TransactionForm) => {
+    // Prevent double submission
+    if (isSubmittingQuick || quickTransactionMutation.isPending) {
+      console.log('Quick transaction already pending, ignoring duplicate submission');
+      return;
+    }
+    
+    setIsSubmittingQuick(true);
+    
     // No category needed - always uses Quick Payment category
     quickTransactionMutation.mutate({
       amount: data.amount,
