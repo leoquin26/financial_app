@@ -221,7 +221,7 @@ const Dashboard: React.FC = () => {
   if (!data) return null;
 
   return (
-    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+    <Box sx={{ width: '100%', maxWidth: '100%', overflow: 'hidden', px: { xs: 1, sm: 2, md: 3 }, py: 2 }}>
       {/* Header */}
       <Box 
         display="flex" 

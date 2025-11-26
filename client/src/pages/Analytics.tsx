@@ -280,7 +280,7 @@ const Analytics: React.FC = () => {
   const incomeCategories = analyticsData.categoryBreakdown.filter(c => c.type === 'income');
 
   return (
-    <Box>
+    <Box sx={{ width: '100%', maxWidth: '100%', px: { xs: 1, sm: 2, md: 3 }, py: 2 }}>
       {/* Header */}
       <Box 
         display="flex" 
@@ -289,6 +289,7 @@ const Analytics: React.FC = () => {
         alignItems={{ xs: 'stretch', sm: 'center' }} 
         gap={2}
         mb={3}
+        sx={{ width: '100%' }}
       >
         <Typography variant="h4" fontWeight="bold" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
           Análisis Financiero
@@ -325,7 +326,7 @@ const Analytics: React.FC = () => {
       </Box>
 
       {/* Overview Cards */}
-      <Grid container spacing={3} mb={3}>
+      <Grid container spacing={{ xs: 1, sm: 2, md: 3 }} sx={{ mb: 3, width: '100%' }}>
         <Grid item xs={12} sm={6} md={3}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}

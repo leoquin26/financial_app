@@ -366,7 +366,7 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ px: { xs: 1, sm: 2, md: 3 }, py: 2, width: '100%' }}>
       <Typography variant="h4" gutterBottom>
         Configuración
       </Typography>
