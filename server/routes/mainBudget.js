@@ -31,13 +31,33 @@ router.get('/', auth, async (req, res) => {
     for (const budget of budgets) {
       await budget.updateAnalytics();
       
-      // Update week statuses based on dates
+      // Update week statuses based on dates and calculate spent amounts
       const now = new Date();
       let hasChanges = false;
       
       for (const week of budget.weeklyBudgets) {
         const weekStart = new Date(week.startDate);
         const weekEnd = new Date(week.endDate);
+        
+        // Calculate spent amount if there's a weekly budget
+        if (week.budgetId && week.budgetId.categories) {
+          let weekSpent = 0;
+          // If budgetId is populated with the full WeeklyBudget document
+          if (week.budgetId.categories && Array.isArray(week.budgetId.categories)) {
+            for (const category of week.budgetId.categories) {
+              if (category.payments && Array.isArray(category.payments)) {
+                const categorySpent = category.payments
+                  .filter(payment => payment.status === 'paid')
+                  .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+                weekSpent += categorySpent;
+              }
+            }
+          }
+          // Add spentAmount to the week object for frontend
+          week.spentAmount = weekSpent;
+        } else {
+          week.spentAmount = 0;
+        }
         
         // Determine the correct status based on dates
         let correctStatus;

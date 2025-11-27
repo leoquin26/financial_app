@@ -7,9 +7,13 @@ const connectDB = async () => {
     await mongoose.connect(mongoUri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      maxPoolSize: 10, // Limit connection pool size
+      minPoolSize: 2,  // Minimum connections to maintain
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
     });
 
-    console.log('MongoDB connected successfully');
+    console.log('MongoDB connected successfully with connection pool limits');
     
     // Initialize default data
     await initializeDefaultData();

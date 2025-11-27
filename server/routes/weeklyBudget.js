@@ -2152,6 +2152,10 @@ router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
     const { budgetId, paymentId } = req.params;
     const { status, paidBy, name, amount, scheduledDate, notes, categoryId } = req.body;
     
+    console.log(`[Payment Update] Starting update for payment ${paymentId} in budget ${budgetId}`);
+    console.log(`[Payment Update] Request body:`, req.body);
+    
+    // Use findById with lean for better performance on initial check
     const budget = await WeeklyBudget.findOne({
       _id: budgetId,
       $or: [
@@ -2161,6 +2165,7 @@ router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
     });
     
     if (!budget) {
+      console.log(`[Payment Update] Budget ${budgetId} not found`);
       return res.status(404).json({ error: 'Budget not found' });
     }
     
@@ -2216,17 +2221,71 @@ router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
     }
     
     // Update remaining budget
-    budget.updateRemainingBudget();
-    await budget.save();
+    try {
+      budget.updateRemainingBudget();
+    } catch (updateError) {
+      console.error('[Payment Update] Error updating remaining budget:', updateError);
+      // Continue even if remaining budget update fails
+    }
+    
+    // Save with retry logic for concurrent updates
+    let retryCount = 0;
+    const maxRetries = 3;
+    let saved = false;
+    
+    while (!saved && retryCount < maxRetries) {
+      try {
+        await budget.save();
+        saved = true;
+        console.log(`[Payment Update] Successfully saved budget after ${retryCount + 1} attempt(s)`);
+      } catch (saveError) {
+        retryCount++;
+        console.error(`[Payment Update] Save attempt ${retryCount} failed:`, saveError.message);
+        
+        if (retryCount >= maxRetries) {
+          throw saveError;
+        }
+        
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 100 * retryCount));
+        
+        // Reload the budget and try again
+        const freshBudget = await WeeklyBudget.findById(budgetId);
+        if (!freshBudget) {
+          throw new Error('Budget no longer exists');
+        }
+        
+        // Reapply the changes
+        for (const category of freshBudget.categories) {
+          const payment = category.payments.find(p => 
+            p._id.toString() === paymentId || 
+            p.paymentScheduleId?.toString() === paymentId
+          );
+          
+          if (payment) {
+            if (name !== undefined) payment.name = name;
+            if (amount !== undefined) payment.amount = amount;
+            if (scheduledDate !== undefined) payment.scheduledDate = scheduledDate;
+            if (notes !== undefined) payment.notes = notes;
+            if (status !== undefined) payment.status = status;
+            if (status === 'paid' && paidBy) payment.paidBy = paidBy;
+            break;
+          }
+        }
+        
+        budget = freshBudget;
+      }
+    }
     
     // Populate and return
     await budget.populate('categories.categoryId');
     await budget.populate('categories.payments.paidBy', 'name email');
     
+    console.log(`[Payment Update] Successfully completed update for payment ${paymentId}`);
     res.json(budget);
   } catch (error) {
-    console.error('Error updating payment status:', error);
-    res.status(500).json({ error: 'Failed to update payment status' });
+    console.error('[Payment Update] Error updating payment status:', error);
+    res.status(500).json({ error: 'Failed to update payment status: ' + error.message });
   }
 });
 

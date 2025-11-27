@@ -1007,7 +1007,7 @@ const WeeklyBudget: React.FC = () => {
       )}
 
       {/* Budget Setup Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} className="budget-setup-dialog">
         <DialogTitle>
           {currentBudget?.totalBudget > 0 ? 'Edit Weekly Budget' : 'Set Up Weekly Budget'}
         </DialogTitle>

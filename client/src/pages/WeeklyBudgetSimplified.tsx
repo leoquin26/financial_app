@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -348,35 +348,74 @@ const WeeklyBudgetSimplified: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['weeklyBudget'] });
   };
 
-  // Update payment status mutation
+  // Track ongoing updates to prevent duplicates
+  const ongoingUpdates = useRef<Set<string>>(new Set());
+  
+  // Update payment status mutation with better error handling
   const updateStatusMutation = useMutation({
     mutationFn: async ({ paymentId, status }: { paymentId: string; status: string }) => {
-      // Check if we have a current budget (embedded payments)
-      if (currentBudget?._id) {
-        const response = await axios.patch(`/api/weekly-budget/${currentBudget._id}/payment/${paymentId}`, { 
-          status,
-          paidBy: status === 'paid' ? user?.id : undefined
-        });
-        return response.data;
-      } else {
-        // Standalone payment
-        const response = await axios.patch(`/api/payments/${paymentId}`, { status });
-        return response.data;
+      // Prevent duplicate updates
+      const updateKey = `${paymentId}-${status}`;
+      if (ongoingUpdates.current.has(updateKey)) {
+        console.log(`Update already in progress for ${updateKey}, skipping`);
+        return null;
+      }
+      
+      ongoingUpdates.current.add(updateKey);
+      
+      try {
+        // Check if we have a current budget (embedded payments)
+        if (currentBudget?._id) {
+          const response = await axios.patch(`/api/weekly-budget/${currentBudget._id}/payment/${paymentId}`, { 
+            status,
+            paidBy: status === 'paid' ? user?.id : undefined
+          });
+          return response.data;
+        } else {
+          // Standalone payment
+          const response = await axios.patch(`/api/payments/${paymentId}`, { status });
+          return response.data;
+        }
+      } finally {
+        // Always remove from ongoing updates
+        ongoingUpdates.current.delete(updateKey);
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payments', 'weekly'] });
-      queryClient.invalidateQueries({ queryKey: ['weeklyBudget'] });
-      queryClient.invalidateQueries({ queryKey: ['householdBudgets'] });
-      toast.success('Payment status updated!');
+    onSuccess: (data) => {
+      if (data) {
+        queryClient.invalidateQueries({ queryKey: ['payments', 'weekly'] });
+        queryClient.invalidateQueries({ queryKey: ['weeklyBudget'] });
+        queryClient.invalidateQueries({ queryKey: ['householdBudgets'] });
+        toast.success('Payment status updated!');
+      }
     },
     onError: (error: any) => {
+      console.error('Payment status update error:', error);
       toast.error(error.response?.data?.error || 'Failed to update payment status');
+      // Refetch to ensure UI is in sync
+      refetchBudget();
     },
+    // Prevent multiple simultaneous mutations
+    retry: 1,
+    retryDelay: 1000,
   });
 
   const handlePaymentStatusChange = (paymentId: string, newStatus: string) => {
-    updateStatusMutation.mutate({ paymentId, status: newStatus });
+    // Store the mutation function reference to avoid type issues
+    const mutate = updateStatusMutation.mutate;
+    const isPending = updateStatusMutation.isPending;
+    
+    // Check if mutation is already in progress
+    if (isPending) {
+      console.log('Another update is in progress, queueing this update');
+      // Queue the update for later
+      setTimeout(() => {
+        // Use the stored reference
+        mutate({ paymentId, status: newStatus });
+      }, 500);
+    } else {
+      mutate({ paymentId, status: newStatus });
+    }
   };
 
   // Handle edit payment

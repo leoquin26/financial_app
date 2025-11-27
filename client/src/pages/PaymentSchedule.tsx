@@ -838,7 +838,7 @@ const PaymentScheduleComponent: React.FC = () => {
       )}
 
       {/* Add/Edit Payment Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog} className="payment-dialog">
         <DialogTitle>
           {selectedPayment ? 'Edit Payment' : 'Schedule New Payment'}
         </DialogTitle>

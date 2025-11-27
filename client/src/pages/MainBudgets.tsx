@@ -83,6 +83,7 @@ interface MainBudget {
     startDate: string;
     endDate: string;
     allocatedAmount: number;
+    spentAmount?: number;
     status: 'pending' | 'active' | 'completed';
   }>;
   analytics: {
@@ -168,21 +169,41 @@ const WeekCard: React.FC<WeekCardProps> = ({ week, mainBudgetId, onNavigate }) =
             {format(new Date(week.startDate), 'MMM d')} - {format(new Date(week.endDate), 'MMM d')}
           </Typography>
 
-          <Typography 
-            variant="h5" 
-            fontWeight="bold" 
-            color={isCurrentWeek ? 'primary' : isPastWeek ? 'textSecondary' : 'textPrimary'}
-          >
-            ${week.allocatedAmount.toLocaleString()}
-          </Typography>
-          
+          <Box mb={1}>
+            <Typography variant="body2" color="textSecondary">
+              Budget
+            </Typography>
+            <Typography 
+              variant="h5" 
+              fontWeight="bold" 
+              color={isCurrentWeek ? 'primary' : isPastWeek ? 'textSecondary' : 'textPrimary'}
+            >
+              ${week.allocatedAmount.toLocaleString()}
+            </Typography>
+          </Box>
+
           {week.budgetId && (
-            <Box display="flex" alignItems="center" gap={0.5} mt={1}>
-              <Typography variant="body2" color="textSecondary">
-                View details
-              </Typography>
-              <ArrowForwardIcon fontSize="small" color="action" />
-            </Box>
+            <>
+              <Box mb={1}>
+                <Typography variant="body2" color="textSecondary">
+                  Spent
+                </Typography>
+                <Typography 
+                  variant="h6" 
+                  fontWeight="bold" 
+                  color={week.spentAmount && week.spentAmount > week.allocatedAmount ? 'error' : 'success'}
+                >
+                  ${(week.spentAmount || 0).toLocaleString()}
+                </Typography>
+              </Box>
+              
+              <Box display="flex" alignItems="center" gap={0.5} mt={1}>
+                <Typography variant="body2" color="textSecondary">
+                  View details
+                </Typography>
+                <ArrowForwardIcon fontSize="small" color="action" />
+              </Box>
+            </>
           )}
         </CardContent>
       </CardActionArea>

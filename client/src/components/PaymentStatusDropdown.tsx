@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   Select,
   MenuItem,
   FormControl,
   SelectChangeEvent,
   Chip,
+  CircularProgress,
 } from '@mui/material';
 import {
   Schedule as PendingIcon,
@@ -56,23 +57,62 @@ const PaymentStatusDropdown: React.FC<PaymentStatusDropdownProps> = ({
   disabled = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [localStatus, setLocalStatus] = useState<'pending' | 'paying' | 'paid' | 'overdue' | 'cancelled'>(currentStatus);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const handleChange = (event: SelectChangeEvent<string>) => {
+  // Update local status when prop changes (after successful update)
+  React.useEffect(() => {
+    setLocalStatus(currentStatus);
+    setIsUpdating(false);
+  }, [currentStatus]);
+
+  const handleChange = useCallback((event: SelectChangeEvent<string>) => {
     const newStatus = event.target.value;
+    
+    // Prevent multiple simultaneous updates
+    if (isUpdating) {
+      console.log('PaymentStatusDropdown: Update already in progress, ignoring');
+      return;
+    }
+    
     console.log('PaymentStatusDropdown handleChange:', { paymentId, currentStatus, newStatus });
-    onStatusChange(paymentId, newStatus);
-  };
+    
+    // Update local state immediately for better UX
+    setLocalStatus(newStatus as 'pending' | 'paying' | 'paid' | 'overdue' | 'cancelled');
+    setIsUpdating(true);
+    
+    // Clear any existing debounce timer
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    
+    // Debounce the actual update to prevent rapid consecutive calls
+    debounceTimer.current = setTimeout(() => {
+      onStatusChange(paymentId, newStatus);
+      // isUpdating will be set to false when currentStatus prop updates
+    }, 300); // 300ms debounce
+  }, [paymentId, currentStatus, onStatusChange, isUpdating]);
 
-  const config = statusConfig[currentStatus] || statusConfig.pending;
+  const config = statusConfig[localStatus] || statusConfig.pending;
+
+  // Cleanup debounce timer on unmount
+  React.useEffect(() => {
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
 
   return (
-    <FormControl size="small" sx={{ minWidth: 120 }}>
+    <FormControl size="small" sx={{ minWidth: 120, position: 'relative' }}>
       <Select
-        value={currentStatus}
+        value={localStatus}
         onChange={handleChange}
-        disabled={disabled}
+        disabled={disabled || isUpdating}
         open={isOpen}
-        onOpen={() => setIsOpen(true)}
+        onOpen={() => !isUpdating && setIsOpen(true)}
         onClose={() => setIsOpen(false)}
         displayEmpty
         renderValue={(value) => (
@@ -80,11 +120,12 @@ const PaymentStatusDropdown: React.FC<PaymentStatusDropdownProps> = ({
             label={statusConfig[value as keyof typeof statusConfig].label}
             color={statusConfig[value as keyof typeof statusConfig].color}
             size="small"
-            icon={statusConfig[value as keyof typeof statusConfig].icon}
-            sx={{ cursor: 'pointer' }}
+            icon={isUpdating ? <CircularProgress size={16} /> : statusConfig[value as keyof typeof statusConfig].icon}
+            sx={{ cursor: isUpdating ? 'wait' : 'pointer' }}
             onClick={(e) => {
-              console.log('Chip clicked');
-              // Don't stop propagation - let the Select handle it
+              if (!isUpdating) {
+                console.log('Chip clicked');
+              }
             }}
           />
         )}

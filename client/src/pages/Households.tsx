@@ -627,7 +627,7 @@ const Households: React.FC = () => {
       )}
 
       {/* Create Household Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} className="household-dialog">
         <form onSubmit={handleCreateSubmit(handleCreateHousehold)}>
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={1}>
@@ -681,7 +681,7 @@ const Households: React.FC = () => {
       </Dialog>
 
       {/* Invite Member Dialog */}
-      <Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)} className="invite-dialog">
         <form onSubmit={handleInviteSubmit(handleInviteMember)}>
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={1}>

@@ -80,6 +80,10 @@ const mainBudgetSchema = new mongoose.Schema({
     startDate: Date,
     endDate: Date,
     allocatedAmount: Number,
+    spentAmount: {
+      type: Number,
+      default: 0
+    },
     status: {
       type: String,
       enum: ['pending', 'active', 'completed'],
@@ -234,8 +238,14 @@ mainBudgetSchema.methods.updateAnalytics = async function() {
         }, 0);
         
         totalSpent += weekSpent;
+        // Update the spentAmount for this week
+        week.spentAmount = weekSpent;
         totalAllocated += week.allocatedAmount || 0;
+      } else {
+        week.spentAmount = 0;
       }
+    } else {
+      week.spentAmount = 0;
     }
   }
   
