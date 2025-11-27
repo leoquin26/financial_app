@@ -438,7 +438,7 @@ const Categories: React.FC = () => {
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth className="category-dialog">
+      <Dialog open={openDialog} onClose={handleCloseDialog} className="category-dialog">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={1}>

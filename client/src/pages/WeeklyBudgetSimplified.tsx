@@ -1112,7 +1112,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
       </Grid>
 
       {/* Set Budget Dialog */}
-      <Dialog open={openBudgetDialog} onClose={() => setOpenBudgetDialog(false)} maxWidth="xs" fullWidth className="budget-dialog">
+      <Dialog open={openBudgetDialog} onClose={() => setOpenBudgetDialog(false)} className="budget-dialog">
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
             <BudgetIcon color="primary" />
@@ -1147,7 +1147,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
       </Dialog>
 
       {/* Share Budget Dialog */}
-      <Dialog open={openShareDialog} onClose={() => setOpenShareDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openShareDialog} onClose={() => setOpenShareDialog(false)} className="share-dialog">
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
             <GroupIcon color="primary" />
@@ -1230,7 +1230,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
       </Dialog>
 
       {/* Edit Payment Dialog */}
-      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} className="edit-dialog">
         <DialogTitle>Edit Payment</DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>

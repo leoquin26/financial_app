@@ -4,46 +4,52 @@
    GLOBAL DIALOG STYLES
    =========================== */
 
-/* Base dialog fixes */
+/* Base dialog fixes - smaller and centered */
 .MuiDialog-root {
   z-index: 1300 !important;
 }
 
+.MuiDialog-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 .MuiDialog-paper {
-  margin: 32px auto !important;
+  margin: auto !important;
   border-radius: 12px !important;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
-  max-height: calc(100vh - 64px) !important;
+  max-height: 70vh !important;
   position: relative !important;
-  width: calc(100% - 64px) !important;
-  max-width: 560px !important;
+  width: 90% !important;
+  max-width: 480px !important;
   height: auto !important;
 }
 
-/* Size constraints for different dialog types */
+/* Size constraints for different dialog types - smaller */
 .MuiDialog-paperWidthSm {
-  max-width: 560px !important;
+  max-width: 400px !important;
 }
 
 .MuiDialog-paperWidthMd {
-  max-width: 720px !important;
+  max-width: 480px !important;
 }
 
 .MuiDialog-paperWidthLg {
-  max-width: 960px !important;
+  max-width: 600px !important;
 }
 
-/* Transaction dialog specific */
+/* Transaction dialog specific - smaller */
 .transaction-dialog .MuiDialog-paper {
-  max-width: 560px !important;
-  width: calc(100% - 64px) !important;
+  max-width: 480px !important;
+  width: 90% !important;
 }
 
 /* Responsive dialog sizes */
 @media (max-width: 600px) {
   .MuiDialog-paper {
-    margin: 16px !important;
-    max-height: calc(100vh - 32px) !important;
+    margin: auto !important;
+    max-height: 85vh !important;
     max-width: calc(100vw - 32px) !important;
     width: calc(100vw - 32px) !important;
   }
@@ -369,7 +375,8 @@
 
 .MuiBackdrop-root {
   background-color: rgba(0, 0, 0, 0.5) !important;
-  backdrop-filter: blur(2px) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* ===========================
@@ -380,10 +387,39 @@
   z-index: 1300 !important;
 }
 
-.MuiBackdrop-root {
-  z-index: 1299 !important;
+/* Fix backdrop for dialogs */
+.MuiDialog-root .MuiBackdrop-root {
+  z-index: -1 !important;
+  position: fixed !important;
 }
 
 .MuiDialog-paper {
   z-index: 1301 !important;
+}
+
+/* ===========================
+   MENU FIXES (Profile, etc.)
+   =========================== */
+
+/* Fix Menu backdrop and positioning */
+.MuiMenu-root {
+  z-index: 1300 !important;
+}
+
+.MuiMenu-paper {
+  z-index: 1301 !important;
+}
+
+/* Remove backdrop for Menu components */
+.MuiMenu-root .MuiBackdrop-root,
+.MuiPopover-root .MuiBackdrop-root {
+  display: none !important;
+}
+
+/* Alternative: Make menu backdrop transparent and non-blocking */
+.MuiMenu-root .MuiModal-backdrop,
+.MuiPopover-root .MuiModal-backdrop {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }

@@ -607,7 +607,7 @@ const Budgets: React.FC = () => {
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog} className="budget-dialog">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>
             {editingBudget ? 'Editar Presupuesto' : 'Nuevo Presupuesto'}

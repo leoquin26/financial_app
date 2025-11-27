@@ -221,9 +221,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
       {/* Quick Payment Dialog */}
       <Dialog 
         open={openDialog} 
-        onClose={handleCloseDialog} 
-        maxWidth="sm" 
-        fullWidth
+        onClose={handleCloseDialog}
         className="quick-payment-dialog"
       >
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -395,9 +393,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
       {/* Budget Creation Dialog */}
       <Dialog 
         open={openBudgetDialog} 
-        onClose={() => setOpenBudgetDialog(false)} 
-        maxWidth="sm" 
-        fullWidth
+        onClose={() => setOpenBudgetDialog(false)}
         className="budget-dialog"
       >
         <DialogTitle>
