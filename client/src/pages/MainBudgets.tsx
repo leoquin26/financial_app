@@ -1364,14 +1364,14 @@ const MainBudgets: React.FC = () => {
                       <Box>
                         <Typography variant="caption" color="textSecondary">Gastado</Typography>
                         <Typography variant="h6" color="primary">
-                          {formatCurrency((weeklyBudget.totalBudget - weeklyBudget.remainingBudget) || 0, user?.currency || 'PEN')}
+                          {formatCurrency(weeklyBudget.totalSpent || 0, user?.currency || 'PEN')}
                         </Typography>
                       </Box>
                     </Box>
 
                     <LinearProgress 
                       variant="determinate" 
-                      value={weeklyBudget.totalBudget > 0 ? ((weeklyBudget.totalBudget - weeklyBudget.remainingBudget) / weeklyBudget.totalBudget * 100) : 0} 
+                      value={weeklyBudget.totalBudget > 0 ? ((weeklyBudget.totalSpent || 0) / weeklyBudget.totalBudget * 100) : 0} 
                       sx={{ mb: 2, height: 6, borderRadius: 3 }}
                     />
 

@@ -544,9 +544,34 @@ router.get('/', auth, async (req, res) => {
 
     const budgets = await WeeklyBudget.find(query)
       .populate('allocations.categoryId')
+      .populate('categories.categoryId')
       .sort('-weekStartDate');
 
-    res.json(budgets);
+    // Calculate spent amount for each budget
+    const budgetsWithSpent = budgets.map(budget => {
+      const budgetObj = budget.toObject();
+      
+      // Calculate total spent from categories and payments
+      let totalSpent = 0;
+      if (budgetObj.categories && Array.isArray(budgetObj.categories)) {
+        budgetObj.categories.forEach(category => {
+          if (category.payments && Array.isArray(category.payments)) {
+            const categorySpent = category.payments
+              .filter(payment => payment.status === 'paid')
+              .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+            totalSpent += categorySpent;
+          }
+        });
+      }
+      
+      // Add spent amount and recalculate remaining budget
+      budgetObj.totalSpent = totalSpent;
+      budgetObj.remainingBudget = budgetObj.totalBudget - totalSpent;
+      
+      return budgetObj;
+    });
+
+    res.json(budgetsWithSpent);
   } catch (error) {
     console.error('Error fetching budgets:', error);
     res.status(500).json({ error: 'Failed to fetch budgets' });
