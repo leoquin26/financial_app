@@ -35,6 +35,7 @@ import { toast } from 'react-hot-toast';
 import { axiosInstance as axios } from '../config/api';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
+import { getCurrencySymbol } from '../utils/currencies';
 
 interface QuickPaymentForm {
   amount: number;
@@ -80,6 +81,8 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
       return response.data;
     },
     onSuccess: (data) => {
+      setIsSubmitting(false); // Reset submission state
+      
       if (data.requiresBudget) {
         setPendingQuickTransaction(data.transactionData);
         setOpenBudgetDialog(true);
@@ -97,6 +100,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
       }
     },
     onError: (error: any) => {
+      setIsSubmitting(false); // Reset submission state on error
       toast.error(error.response?.data?.error || 'Error al registrar pago rápido');
     },
   });
@@ -118,11 +122,12 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
         navigate(`/budgets/week/${data.weeklyBudget._id}`);
       }
       
-      if (pendingQuickTransaction) {
+      if (pendingQuickTransaction && !isSubmitting) {
         // Check if we haven't already processed this transaction
         console.log('Processing pending quick transaction after budget creation');
         const transactionData = { ...pendingQuickTransaction };
         setPendingQuickTransaction(null); // Clear immediately to prevent double submission
+        setIsSubmitting(true); // Set submitting flag
         
         setTimeout(() => {
           quickTransactionMutation.mutate(transactionData);
@@ -152,7 +157,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
     setOpenDialog(false);
   };
 
-  const onSubmit = async (data: QuickPaymentForm) => {
+  const onSubmit = (data: QuickPaymentForm) => {
     // Prevent double submission
     if (isSubmitting || quickTransactionMutation.isPending) {
       console.log('Quick transaction already pending, ignoring duplicate submission');
@@ -161,18 +166,14 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
     
     setIsSubmitting(true);
     
-    try {
-      await quickTransactionMutation.mutateAsync({
-        amount: data.amount,
-        currency: data.currency,
-        description: data.description,
-        date: format(data.date, 'yyyy-MM-dd'),
-        paymentMethod: data.payment_method,
-        tags: data.tags ? data.tags.split(',').map(t => t.trim()) : ['quick-payment'],
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    quickTransactionMutation.mutate({
+      amount: data.amount,
+      currency: data.currency,
+      description: data.description,
+      date: format(data.date, 'yyyy-MM-dd'),
+      paymentMethod: data.payment_method,
+      tags: data.tags ? data.tags.split(',').map(t => t.trim()) : ['quick-payment'],
+    });
   };
 
   // Adjust position for mobile bottom navigation
@@ -223,13 +224,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
         onClose={handleCloseDialog} 
         maxWidth="sm" 
         fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: isMobile ? 1 : 2,
-            maxHeight: isMobile ? '90vh' : '80vh',
-            width: isMobile ? 'calc(100% - 16px)' : '100%',
-          }
-        }}
+        className="quick-payment-dialog"
       >
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>
@@ -267,8 +262,18 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
                       helperText={errors.amount?.message}
                       InputProps={{
                         startAdornment: (
-                          <InputAdornment position="start">
-                            {user?.currency === 'USD' ? '$' : 'S/'}
+                          <InputAdornment position="start" sx={{ mr: 0 }}>
+                            <Typography 
+                              component="span" 
+                              sx={{ 
+                                color: 'text.primary',
+                                fontSize: '1rem',
+                                fontWeight: 400,
+                                mr: 0.5
+                              }}
+                            >
+                              {getCurrencySymbol(user?.currency || 'PEN')}
+                            </Typography>
                           </InputAdornment>
                         ),
                       }}
@@ -393,13 +398,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
         onClose={() => setOpenBudgetDialog(false)} 
         maxWidth="sm" 
         fullWidth
-        sx={{
-          '& .MuiDialog-paper': {
-            m: isMobile ? 1 : 2,
-            maxHeight: isMobile ? '90vh' : '80vh',
-            width: isMobile ? 'calc(100% - 16px)' : '100%',
-          }
-        }}
+        className="budget-dialog"
       >
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>

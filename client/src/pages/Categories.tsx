@@ -438,10 +438,13 @@ const Categories: React.FC = () => {
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth className="category-dialog">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>
-            {editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}
+            <Box display="flex" alignItems="center" gap={1}>
+              <CategoryIcon color="primary" />
+              {editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}
+            </Box>
           </DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 1 }}>

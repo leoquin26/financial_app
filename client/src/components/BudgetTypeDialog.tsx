@@ -41,10 +41,10 @@ const BudgetTypeDialog: React.FC<BudgetTypeDialogProps> = ({ open, onClose, onSe
   return (
     <Dialog 
       open={open} 
-      onClose={onClose}
-      maxWidth="sm"
+      onClose={onClose} 
+      maxWidth="sm" 
       fullWidth
-      fullScreen={isMobile}
+      className="budget-type-dialog"
     >
       <DialogTitle>
         <Box display="flex" alignItems="center" gap={2}>

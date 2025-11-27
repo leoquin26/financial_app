@@ -149,13 +149,29 @@ router.get('/current', auth, async (req, res) => {
       endOfWeek.setDate(startOfWeek.getDate() + 6);
       endOfWeek.setHours(23, 59, 59, 999);
 
+      // Get Quick Payment category to include it by default
+      const quickPaymentCategory = await Category.findOne({
+        name: 'Quick Payment',
+        isSystem: true
+      });
+      
+      const initialCategories = [];
+      if (quickPaymentCategory) {
+        initialCategories.push({
+          categoryId: quickPaymentCategory._id,
+          allocation: 0,
+          payments: []
+        });
+        console.log('Added Quick Payment category to new budget');
+      }
+      
       budget = new WeeklyBudget({
         userId: req.user._id,
         weekStartDate: startOfWeek,
         weekEndDate: endOfWeek,
         totalBudget: 0,
         allocations: [],
-        categories: [],
+        categories: initialCategories,
         creationMode: 'manual'
       });
       
@@ -166,17 +182,52 @@ router.get('/current', auth, async (req, res) => {
     await budget.populate('categories.categoryId');
     await budget.populate('categories.payments.paidBy', 'name email');
     
-    // Fetch all expense transactions for this week
-    const weekTransactions = await Transaction.find({
-      userId: req.user._id,
-      type: 'expense',
-      date: {
-        $gte: budget.weekStartDate,
-        $lte: budget.weekEndDate
-      }
-    }).populate('categoryId');
+    console.log('Budget categories after populate:', budget.categories.map(cat => ({
+      categoryName: cat.categoryId?.name,
+      categoryId: cat.categoryId?._id,
+      paymentsCount: cat.payments.length,
+      allocation: cat.allocation
+    })));
+    
+    // Fetch expense transactions for this week
+    // Exclude Quick Payment transactions as they're already handled through the budget
+    const quickPaymentCategory = await Category.findOne({
+      name: 'Quick Payment',
+      isSystem: true
+    });
+    
+    // We should NOT add ANY transactions that are already in the budget
+    // Quick Payments are added via the /quick endpoint and have transactionId links
+    let weekTransactions = [];
+    
+    // Only fetch non-Quick Payment transactions
+    if (quickPaymentCategory) {
+      weekTransactions = await Transaction.find({
+        userId: req.user._id,
+        type: 'expense',
+        date: {
+          $gte: budget.weekStartDate,
+          $lte: budget.weekEndDate
+        },
+        categoryId: { $ne: quickPaymentCategory._id }
+      }).populate('categoryId');
+      
+      console.log(`Quick Payment category found: ${quickPaymentCategory._id}, excluding from transactions`);
+    } else {
+      // If no Quick Payment category, get all transactions
+      weekTransactions = await Transaction.find({
+        userId: req.user._id,
+        type: 'expense',
+        date: {
+          $gte: budget.weekStartDate,
+          $lte: budget.weekEndDate
+        }
+      }).populate('categoryId');
+      
+      console.log('Quick Payment category not found, including all transactions');
+    }
 
-    console.log(`Found ${weekTransactions.length} expense transactions for current week`);
+    console.log(`Found ${weekTransactions.length} expense transactions for current week (excluding Quick Payments)`);
 
     // Convert to plain object to modify
     const enhancedBudget = budget.toObject();
@@ -199,6 +250,12 @@ router.get('/current', auth, async (req, res) => {
       // Skip if this transaction is already linked to a payment
       if (existingTransactionIds.has(transaction._id.toString())) {
         console.log('Skipping transaction (already linked):', transaction._id.toString());
+        return;
+      }
+      
+      // Double-check: Skip if it's a Quick Payment category (shouldn't happen but safety check)
+      if (transaction.categoryId.name === 'Quick Payment' || transaction.categoryId.isSystem) {
+        console.log('Skipping Quick Payment transaction that got through filter:', transaction._id.toString());
         return;
       }
 
@@ -242,6 +299,27 @@ router.get('/current', auth, async (req, res) => {
       }
     });
 
+    // Log Quick Payment category specifically
+    const quickPaymentCat = enhancedBudget.categories.find(cat => 
+      cat.categoryId.name === 'Quick Payment' || cat.categoryId.isSystem
+    );
+    
+    if (quickPaymentCat) {
+      console.log('Quick Payment category found in budget:', {
+        categoryId: quickPaymentCat.categoryId._id,
+        allocation: quickPaymentCat.allocation,
+        paymentsCount: quickPaymentCat.payments.length,
+        payments: quickPaymentCat.payments.map(p => ({
+          name: p.name,
+          amount: p.amount,
+          transactionId: p.transactionId,
+          status: p.status
+        }))
+      });
+    } else {
+      console.log('No Quick Payment category in budget');
+    }
+    
     console.log('Returning enhanced budget:', {
       id: enhancedBudget._id,
       totalBudget: enhancedBudget.totalBudget,
@@ -325,17 +403,45 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Weekly budget not found' });
     }
     
-    // Fetch all expense transactions for this week
-    const weekTransactions = await Transaction.find({
-      userId: req.user._id,
-      type: 'expense',
-      date: {
-        $gte: budget.weekStartDate,
-        $lte: budget.weekEndDate
-      }
-    }).populate('categoryId');
+    // Fetch expense transactions for this week
+    // Exclude Quick Payment transactions as they're already handled through the budget
+    const quickPaymentCategory = await Category.findOne({
+      name: 'Quick Payment',
+      isSystem: true
+    });
+    
+    // We should NOT add ANY transactions that are already in the budget
+    // Quick Payments are added via the /quick endpoint and have transactionId links
+    let weekTransactions = [];
+    
+    // Only fetch non-Quick Payment transactions
+    if (quickPaymentCategory) {
+      weekTransactions = await Transaction.find({
+        userId: req.user._id,
+        type: 'expense',
+        date: {
+          $gte: budget.weekStartDate,
+          $lte: budget.weekEndDate
+        },
+        categoryId: { $ne: quickPaymentCategory._id }
+      }).populate('categoryId');
+      
+      console.log(`Quick Payment category found: ${quickPaymentCategory._id}, excluding from transactions`);
+    } else {
+      // If no Quick Payment category, get all transactions
+      weekTransactions = await Transaction.find({
+        userId: req.user._id,
+        type: 'expense',
+        date: {
+          $gte: budget.weekStartDate,
+          $lte: budget.weekEndDate
+        }
+      }).populate('categoryId');
+      
+      console.log('Quick Payment category not found, including all transactions');
+    }
 
-    console.log(`Found ${weekTransactions.length} expense transactions for week`);
+    console.log(`Found ${weekTransactions.length} expense transactions for week (excluding Quick Payments)`);
     console.log(`Week dates: ${budget.weekStartDate} to ${budget.weekEndDate}`);
 
     // Convert to plain object to modify
@@ -359,6 +465,12 @@ router.get('/:id', auth, async (req, res) => {
       // Skip if this transaction is already linked to a payment
       if (existingTransactionIds.has(transaction._id.toString())) {
         console.log('Skipping duplicate transaction:', transaction._id);
+        return;
+      }
+      
+      // Double-check: Skip if it's a Quick Payment category (shouldn't happen but safety check)
+      if (transaction.categoryId.name === 'Quick Payment' || transaction.categoryId.isSystem) {
+        console.log('Skipping Quick Payment transaction that got through filter:', transaction._id.toString());
         return;
       }
 
@@ -2273,13 +2385,16 @@ router.post('/quick-monthly', auth, async (req, res) => {
           const budgetCategories = [];
           
           // Add Quick Payment category with 0 allocation
-          const quickPaymentCategory = categories.find(c => c.name === 'Quick Payment');
+          const quickPaymentCategory = categories.find(c => c.name === 'Quick Payment' || c.isSystem === true);
           if (quickPaymentCategory) {
             budgetCategories.push({
               categoryId: quickPaymentCategory._id,
               allocation: 0, // User must configure
               payments: []
             });
+            console.log('Added Quick Payment category to budget:', quickPaymentCategory._id);
+          } else {
+            console.log('Quick Payment category not found in categories list');
           }
           
           // Add other essential categories with 0 allocation
@@ -2375,13 +2490,16 @@ router.post('/quick-monthly', auth, async (req, res) => {
       const budgetCategories = [];
       
       // Add Quick Payment category with 0 allocation
-      const quickPaymentCategory = categories.find(c => c.name === 'Quick Payment');
+      const quickPaymentCategory = categories.find(c => c.name === 'Quick Payment' || c.isSystem === true);
       if (quickPaymentCategory) {
         budgetCategories.push({
           categoryId: quickPaymentCategory._id,
           allocation: 0, // User must configure
           payments: []
         });
+        console.log('Added Quick Payment category to budget:', quickPaymentCategory._id);
+      } else {
+        console.log('Quick Payment category not found in categories list');
       }
       
       // Add other essential categories with 0 allocation

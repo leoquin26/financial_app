@@ -2,6 +2,7 @@
 @import url('./styles/critical-mobile.css');
 @import url('./styles/auth-pages.css');
 @import url('./styles/spacing-fixes.css');
+@import url('./styles/modal-fixes.css');
 
 * {
   box-sizing: border-box;

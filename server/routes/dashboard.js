@@ -2,8 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { authMiddleware } = require('../middleware/auth');
 const Transaction = require('../models/Transaction');
-const Budget = require('../models/Budget');
 const Category = require('../models/Category');
+const Budget = require('../models/Budget');
 const { getPaymentsAsTransactions, getAllBudgetData, aggregateAllFinancialData } = require('./analytics-adapter');
 
 const router = express.Router();
@@ -25,7 +25,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
         const startOfPrevMonth = new Date(requestedYear, requestedMonth - 2, 1);
         const endOfPrevMonth = new Date(requestedYear, requestedMonth - 1, 0, 23, 59, 59);
         
-        // Get current month transactions AND budget payments
+        // Get current month transactions
         const currentMonthStats = await Transaction.aggregate([
             {
                 $match: {
@@ -74,7 +74,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
         // Filter budget payments to only include those NOT already counted in transactions
         const uniqueBudgetPayments = budgetPayments.filter(payment => {
             // If payment has a transactionId, it's already counted in transactions
-            return !payment.transactionId || !linkedTransactionIds.has(payment.transactionId.toString());
+            return !payment.transactionId;
         });
         
         const budgetExpenses = uniqueBudgetPayments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -123,7 +123,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
         });
         
         const prevUniqueBudgetPayments = prevBudgetPayments.filter(payment => {
-            return !payment.transactionId || !prevLinkedTransactionIds.has(payment.transactionId.toString());
+            return !payment.transactionId;
         });
         
         const prevBudgetExpenses = prevUniqueBudgetPayments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -140,7 +140,7 @@ router.get('/summary', authMiddleware, async (req, res) => {
         const incomeChangePercent = prevIncome > 0 ? ((incomeChange / prevIncome) * 100) : 0;
         const expenseChangePercent = prevExpenses > 0 ? ((expenseChange / prevExpenses) * 100) : 0;
         
-        // Get expenses by category (combine transactions + budget payments)
+        // Get expenses by category
         const expensesByCategory = await Transaction.aggregate([
             {
                 $match: {
@@ -268,13 +268,22 @@ router.get('/summary', authMiddleware, async (req, res) => {
             }
         ]);
         
-        // Get recent transactions
+        // Get recent transactions (including Quick Payments - they're legitimate transactions)
         const recentTransactions = await Transaction.find({ 
-            userId: new mongoose.Types.ObjectId(req.userId) 
+            userId: new mongoose.Types.ObjectId(req.userId)
         })
             .populate('categoryId')
             .sort({ date: -1, createdAt: -1 })
             .limit(10);
+        
+        console.log('Recent transactions from DB:', recentTransactions.map(t => ({
+            id: t._id,
+            category: t.categoryId?.name,
+            description: t.description,
+            amount: t.amount,
+            date: t.date,
+            isQuickPayment: t.categoryId?.name === 'Quick Payment'
+        })));
         
         // Format recent transactions
         const formattedRecentTransactions = recentTransactions.map(t => ({
@@ -286,7 +295,8 @@ router.get('/summary', authMiddleware, async (req, res) => {
             type: t.type,
             icon: t.categoryId?.icon || '📄',
             color: t.categoryId?.color || '#808080',
-            person: '' // Removed person field
+            person: '', // Removed person field
+            source: 'transaction' // Add source for debugging
         }));
         
         // Get recent budget payments (last 30 days for recent activity)
@@ -296,8 +306,29 @@ router.get('/summary', authMiddleware, async (req, res) => {
             new Date()
         );
         
+        // Debug: Log budget payments before filtering
+        console.log('Budget payments before filtering:', recentBudgetPayments.map(p => ({
+            description: p.description,
+            transactionId: p.transactionId,
+            amount: p.amount,
+            categoryName: p.categoryId?.name
+        })));
+        
+        // Filter out budget payments that have a transactionId
+        // These are already shown in the transactions list (includes Quick Payments)
+        const uniqueRecentBudgetPayments = recentBudgetPayments.filter(payment => {
+            // Skip if it has a transactionId (it's already in the transactions list)
+            if (payment.transactionId) {
+                console.log(`Filtering out budget payment "${payment.description}" with transactionId: ${payment.transactionId}, category: ${payment.categoryId?.name}`);
+                return false;
+            }
+            return true;
+        });
+        
+        console.log(`Budget payments after filtering: ${uniqueRecentBudgetPayments.length} (removed ${recentBudgetPayments.length - uniqueRecentBudgetPayments.length} linked transactions)`);
+        
         // Format and combine recent activities
-        const formattedBudgetPayments = recentBudgetPayments.map(p => ({
+        const formattedBudgetPayments = uniqueRecentBudgetPayments.map(p => ({
             id: p._id,
             amount: p.amount,
             category_name: p.categoryId?.name || 'Unknown',
@@ -306,13 +337,33 @@ router.get('/summary', authMiddleware, async (req, res) => {
             type: 'expense',
             icon: p.categoryId?.icon || '💳',
             color: p.categoryId?.color || '#808080',
-            person: ''
+            person: '',
+            source: 'budget' // Add source for debugging
         }));
         
         // Combine and sort all recent activities
+        console.log(`Combining ${formattedRecentTransactions.length} transactions + ${formattedBudgetPayments.length} budget payments`);
+        
+        // Log Quick Payments specifically
+        const quickPaymentsInTransactions = formattedRecentTransactions.filter(t => 
+            t.category_name === 'Quick Payment'
+        );
+        const quickPaymentsInBudget = formattedBudgetPayments.filter(p => 
+            p.category_name === 'Quick Payment'
+        );
+        
+        console.log(`Quick Payments in transactions: ${quickPaymentsInTransactions.length}`);
+        console.log(`Quick Payments in budget payments (should be 0): ${quickPaymentsInBudget.length}`);
+        
         const allRecentTransactions = [...formattedRecentTransactions, ...formattedBudgetPayments]
             .sort((a, b) => new Date(b.date) - new Date(a.date))
             .slice(0, 10);
+        
+        // Final check for duplicates
+        const quickPaymentsInFinal = allRecentTransactions.filter(t => 
+            t.category_name === 'Quick Payment'
+        );
+        console.log(`Quick Payments in final list: ${quickPaymentsInFinal.length}`);
         
         // Get monthly trend (last 6 months)
         const monthlyTrend = [];
@@ -515,13 +566,15 @@ router.get('/available-income', authMiddleware, async (req, res) => {
         
         const totalExpenses = expenseStats[0]?.total || 0;
         
-        // Get paid budget payments
+        // Get paid budget payments (but exclude those with transactionId to avoid double counting)
         const paidBudgetPayments = await getPaymentsAsTransactions(
             userId,
             new Date(0), // From beginning of time
             new Date() // To now
         );
-        const totalBudgetExpenses = paidBudgetPayments.reduce((sum, p) => sum + p.amount, 0);
+        // Only count budget payments that don't have a transactionId (not linked to a transaction)
+        const uniqueBudgetPayments = paidBudgetPayments.filter(p => !p.transactionId);
+        const totalBudgetExpenses = uniqueBudgetPayments.reduce((sum, p) => sum + p.amount, 0);
         
         // Calculate available (Income - Expenses - Allocated to future budgets)
         // This gives a more accurate picture of what's truly available

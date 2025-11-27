@@ -91,6 +91,10 @@ const weeklyBudgetSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'PaymentSchedule'
       },
+      transactionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Transaction'
+      },
       isRecurring: {
         type: Boolean,
         default: false

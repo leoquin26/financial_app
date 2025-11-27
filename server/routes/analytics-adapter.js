@@ -37,7 +37,8 @@ async function getPaymentsAsTransactions(userId, startDate, endDate) {
                         date: paymentDate,
                         paidDate: payment.paidDate || payment.scheduledDate,
                         paidBy: payment.paidBy,
-                        status: payment.status
+                        status: payment.status,
+                        transactionId: payment.transactionId || null // Include transactionId to identify linked transactions
                     });
                 }
             }

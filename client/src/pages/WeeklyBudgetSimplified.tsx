@@ -290,18 +290,27 @@ const WeeklyBudgetSimplified: React.FC = () => {
     if (currentBudget?.categories && currentBudget.categories.length > 0) {
       const budgetCategories = new Set<string>();
       currentBudget.categories.forEach((cat: any) => {
-        const categoryId = cat.categoryId._id || cat.categoryId;
-        console.log('Processing category:', { cat, categoryId });
+        // Handle both populated and unpopulated categoryId
+        const categoryId = typeof cat.categoryId === 'object' 
+          ? (cat.categoryId._id || cat.categoryId.id)
+          : cat.categoryId;
+        
+        console.log('Processing category:', { 
+          cat, 
+          categoryId,
+          categoryName: cat.categoryId?.name,
+          isQuickPayment: cat.categoryId?.name === 'Quick Payment'
+        });
+        
         if (categoryId) {
-          budgetCategories.add(categoryId);
+          budgetCategories.add(categoryId.toString());
         }
       });
       console.log('Setting selected categories:', Array.from(budgetCategories));
-      if (budgetCategories.size > 0) {
-        setSelectedCategories(budgetCategories);
-      }
+      // Always update selected categories when budget categories change
+      setSelectedCategories(budgetCategories);
     }
-  }, [currentBudget]);
+  }, [currentBudget?.categories?.length, currentBudget?._id]); // Watch for changes in categories array
 
   // Socket listeners for budget updates
   React.useEffect(() => {
@@ -1103,7 +1112,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
       </Grid>
 
       {/* Set Budget Dialog */}
-      <Dialog open={openBudgetDialog} onClose={() => setOpenBudgetDialog(false)} maxWidth="xs" fullWidth>
+      <Dialog open={openBudgetDialog} onClose={() => setOpenBudgetDialog(false)} maxWidth="xs" fullWidth className="budget-dialog">
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
             <BudgetIcon color="primary" />

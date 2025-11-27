@@ -449,22 +449,55 @@ router.post('/quick', authMiddleware, async (req, res) => {
             categoryIds: currentBudget.categories?.map(c => c.categoryId.toString())
         });
         
-        // Check for duplicate transaction in the last 5 seconds to prevent double submission
-        const fiveSecondsAgo = new Date(Date.now() - 5000);
+        // Check for duplicate transaction in the last 10 seconds to prevent double submission
+        const tenSecondsAgo = new Date(Date.now() - 10000);
         const duplicateCheck = await Transaction.findOne({
             userId: req.userId,
             amount: numAmount,
-            description: description || `Quick payment - ${category.name}`,
             categoryId: categoryId,
-            createdAt: { $gte: fiveSecondsAgo }
+            createdAt: { $gte: tenSecondsAgo }
         });
 
         if (duplicateCheck) {
-            console.log('Duplicate quick transaction detected within 5 seconds, returning existing transaction');
+            console.log('Duplicate quick transaction detected within 10 seconds, returning existing transaction');
+            
+            // Ensure it's linked to the budget if we have one
+            if (currentBudget) {
+                const budgetCategory = currentBudget.categories.find(
+                    cat => cat.categoryId.toString() === categoryId.toString()
+                );
+                
+                if (budgetCategory) {
+                    // Check if this transaction is already linked
+                    const existingPayment = budgetCategory.payments.find(
+                        p => p.transactionId && p.transactionId.toString() === duplicateCheck._id.toString()
+                    );
+                    
+                    if (!existingPayment) {
+                        console.log('Duplicate transaction not linked to budget, linking now...');
+                        // Link it now
+                        budgetCategory.payments.push({
+                            _id: new mongoose.Types.ObjectId(),
+                            name: duplicateCheck.description || 'Quick payment',
+                            amount: duplicateCheck.amount,
+                            scheduledDate: duplicateCheck.date,
+                            status: 'paid',
+                            paidDate: duplicateCheck.date,
+                            paidBy: req.userId,
+                            notes: `Linked to duplicate transaction - ${duplicateCheck._id}`,
+                            transactionId: duplicateCheck._id,
+                            paymentScheduleId: null
+                        });
+                        await currentBudget.save();
+                    }
+                }
+            }
+            
             return res.json({
                 success: true,
                 message: 'Pago rápido ya registrado',
-                transaction: duplicateCheck
+                transaction: duplicateCheck,
+                budgetLinked: !!currentBudget
             });
         }
         
@@ -487,9 +520,13 @@ router.post('/quick', authMiddleware, async (req, res) => {
         // If we have an active budget, create a payment entry and link it
         if (currentBudget) {
             // Check if this category exists in the budget
-            const budgetCategory = currentBudget.categories.find(
-                cat => cat.categoryId.toString() === categoryId.toString()
-            );
+            // Need to handle both populated and unpopulated categoryId
+            const budgetCategory = currentBudget.categories.find(cat => {
+                const catId = typeof cat.categoryId === 'object' 
+                    ? (cat.categoryId._id || cat.categoryId.id || cat.categoryId).toString()
+                    : cat.categoryId.toString();
+                return catId === categoryId.toString();
+            });
 
             console.log('Budget category search:', {
                 searchingFor: categoryId.toString(),
@@ -502,6 +539,12 @@ router.post('/quick', authMiddleware, async (req, res) => {
             });
 
             if (budgetCategory) {
+                console.log('Found Quick Payment category in budget:', {
+                    categoryId: budgetCategory.categoryId.toString(),
+                    currentAllocation: budgetCategory.allocation,
+                    paymentsCount: budgetCategory.payments.length
+                });
+                
                 // If category has 0 allocation, set it to at least the payment amount
                 if (!budgetCategory.allocation || budgetCategory.allocation === 0) {
                     budgetCategory.allocation = numAmount;
@@ -544,6 +587,9 @@ router.post('/quick', authMiddleware, async (req, res) => {
                 // Save the budget
                 await currentBudget.save();
                 
+                // Populate the category info for socket emission
+                await currentBudget.populate('categories.categoryId');
+                
                 console.log('Quick transaction linked to budget:', {
                     transactionId: transaction._id,
                     budgetId: currentBudget._id,
@@ -552,7 +598,7 @@ router.post('/quick', authMiddleware, async (req, res) => {
                     paymentsInCategory: budgetCategory.payments.length
                 });
                 
-                // Emit budget update event
+                // Emit budget update event with populated categories
                 const io = getIo();
                 if (io) {
                     io.to(`user_${req.userId}`).emit('budget-updated', currentBudget);
@@ -587,9 +633,12 @@ router.post('/quick', authMiddleware, async (req, res) => {
                 // Save the budget
                 await currentBudget.save();
                 
+                // Populate the category info for socket emission
+                await currentBudget.populate('categories.categoryId');
+                
                 console.log('Added new category to budget with quick payment');
                 
-                // Emit budget update event
+                // Emit budget update event with populated categories
                 const io = getIo();
                 if (io) {
                     io.to(`user_${req.userId}`).emit('budget-updated', currentBudget);
