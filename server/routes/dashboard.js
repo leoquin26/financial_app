@@ -268,36 +268,41 @@ router.get('/summary', authMiddleware, async (req, res) => {
             }
         ]);
         
-        // Get recent transactions (including Quick Payments - they're legitimate transactions)
+        // Get recent transactions - ALL transactions, sorted by date
+        console.log('[Dashboard] Fetching recent transactions for user:', req.userId);
+        
         const recentTransactions = await Transaction.find({ 
             userId: new mongoose.Types.ObjectId(req.userId)
         })
             .populate('categoryId')
             .sort({ date: -1, createdAt: -1 })
-            .limit(10);
+            .limit(15); // Get more to account for any filtering
         
-        console.log('Recent transactions from DB:', recentTransactions.map(t => ({
-            id: t._id,
-            category: t.categoryId?.name,
-            description: t.description,
-            amount: t.amount,
-            date: t.date,
-            isQuickPayment: t.categoryId?.name === 'Quick Payment'
-        })));
+        console.log(`[Dashboard] Found ${recentTransactions.length} recent transactions`);
         
         // Format recent transactions
         const formattedRecentTransactions = recentTransactions.map(t => ({
             id: t._id,
+            _id: t._id,
             amount: t.amount,
             category_name: t.categoryId?.name || 'Unknown',
+            categoryId: t.categoryId,
             description: t.description,
             date: t.date,
             type: t.type,
             icon: t.categoryId?.icon || '📄',
             color: t.categoryId?.color || '#808080',
-            person: '', // Removed person field
-            source: 'transaction' // Add source for debugging
+            paymentScheduleId: t.paymentScheduleId,
+            source: 'transaction'
         }));
+
+        // Get transaction IDs to avoid duplicates from budget payments
+        const transactionIds = new Set(recentTransactions.map(t => t._id.toString()));
+        const paymentScheduleIds = new Set(
+            recentTransactions
+                .filter(t => t.paymentScheduleId)
+                .map(t => t.paymentScheduleId.toString())
+        );
         
         // Get recent budget payments (last 30 days for recent activity)
         const recentBudgetPayments = await getPaymentsAsTransactions(
@@ -306,64 +311,42 @@ router.get('/summary', authMiddleware, async (req, res) => {
             new Date()
         );
         
-        // Debug: Log budget payments before filtering
-        console.log('Budget payments before filtering:', recentBudgetPayments.map(p => ({
-            description: p.description,
-            transactionId: p.transactionId,
-            amount: p.amount,
-            categoryName: p.categoryId?.name
-        })));
-        
-        // Filter out budget payments that have a transactionId
-        // These are already shown in the transactions list (includes Quick Payments)
+        // Filter out budget payments that already have a transaction
         const uniqueRecentBudgetPayments = recentBudgetPayments.filter(payment => {
-            // Skip if it has a transactionId (it's already in the transactions list)
-            if (payment.transactionId) {
-                console.log(`Filtering out budget payment "${payment.description}" with transactionId: ${payment.transactionId}, category: ${payment.categoryId?.name}`);
+            // Skip if this payment already has a transaction created for it
+            if (payment.transactionId && transactionIds.has(payment.transactionId.toString())) {
+                return false;
+            }
+            // Skip if the payment's schedule ID matches a transaction's paymentScheduleId
+            if (payment._id && paymentScheduleIds.has(payment._id.toString())) {
                 return false;
             }
             return true;
         });
         
-        console.log(`Budget payments after filtering: ${uniqueRecentBudgetPayments.length} (removed ${recentBudgetPayments.length - uniqueRecentBudgetPayments.length} linked transactions)`);
+        console.log(`[Dashboard] Budget payments: ${recentBudgetPayments.length} total, ${uniqueRecentBudgetPayments.length} unique`);
         
-        // Format and combine recent activities
+        // Format budget payments
         const formattedBudgetPayments = uniqueRecentBudgetPayments.map(p => ({
             id: p._id,
+            _id: p._id,
             amount: p.amount,
             category_name: p.categoryId?.name || 'Unknown',
+            categoryId: p.categoryId,
             description: p.description,
             date: p.date,
             type: 'expense',
             icon: p.categoryId?.icon || '💳',
             color: p.categoryId?.color || '#808080',
-            person: '',
-            source: 'budget' // Add source for debugging
+            source: 'budget'
         }));
         
-        // Combine and sort all recent activities
-        console.log(`Combining ${formattedRecentTransactions.length} transactions + ${formattedBudgetPayments.length} budget payments`);
-        
-        // Log Quick Payments specifically
-        const quickPaymentsInTransactions = formattedRecentTransactions.filter(t => 
-            t.category_name === 'Quick Payment'
-        );
-        const quickPaymentsInBudget = formattedBudgetPayments.filter(p => 
-            p.category_name === 'Quick Payment'
-        );
-        
-        console.log(`Quick Payments in transactions: ${quickPaymentsInTransactions.length}`);
-        console.log(`Quick Payments in budget payments (should be 0): ${quickPaymentsInBudget.length}`);
-        
+        // Combine and sort all recent activities, then take top 10
         const allRecentTransactions = [...formattedRecentTransactions, ...formattedBudgetPayments]
-            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .slice(0, 10);
         
-        // Final check for duplicates
-        const quickPaymentsInFinal = allRecentTransactions.filter(t => 
-            t.category_name === 'Quick Payment'
-        );
-        console.log(`Quick Payments in final list: ${quickPaymentsInFinal.length}`);
+        console.log(`[Dashboard] Final recent transactions: ${allRecentTransactions.length}`);
         
         // Get monthly trend (last 6 months)
         const monthlyTrend = [];

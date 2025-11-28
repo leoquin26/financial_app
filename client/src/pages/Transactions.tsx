@@ -769,16 +769,8 @@ const Transactions: React.FC = () => {
       {/* Add/Edit Dialog */}
       <Dialog 
         open={openDialog} 
-        onClose={handleCloseDialog} 
-        maxWidth="sm" 
-        fullWidth={false}
+        onClose={handleCloseDialog}
         className="transaction-dialog"
-        PaperProps={{
-          sx: {
-            width: '560px',
-            maxWidth: '90vw',
-          }
-        }}
       >
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogTitle>

@@ -74,6 +74,7 @@ import { axiosInstance as axios } from '../config/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '@mui/material/styles';
 import { useTheme as useCustomTheme } from '../contexts/ThemeContext';
+import NotificationPreferences from '../components/NotificationPreferences';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -649,97 +650,7 @@ const Settings: React.FC = () => {
         {/* Notifications Tab */}
         <TabPanel value={tabValue} index={2}>
           <Box sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Preferencias de Notificación
-            </Typography>
-            
-            <FormGroup>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings?.notifications?.email || false}
-                    onChange={(e) => handleNotificationChange('email', e.target.checked)}
-                  />
-                }
-                label="Notificaciones por correo"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings?.notifications?.push || false}
-                    onChange={(e) => handleNotificationChange('push', e.target.checked)}
-                  />
-                }
-                label="Notificaciones push"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings?.notifications?.budgetAlerts || false}
-                    onChange={(e) => handleNotificationChange('budgetAlerts', e.target.checked)}
-                  />
-                }
-                label="Alertas de presupuesto"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings?.notifications?.transactionAlerts || false}
-                    onChange={(e) => handleNotificationChange('transactionAlerts', e.target.checked)}
-                  />
-                }
-                label="Alertas de transacciones"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings?.notifications?.weeklyReport || false}
-                    onChange={(e) => handleNotificationChange('weeklyReport', e.target.checked)}
-                  />
-                }
-                label="Reporte semanal"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={settings?.notifications?.monthlyReport || false}
-                    onChange={(e) => handleNotificationChange('monthlyReport', e.target.checked)}
-                  />
-                }
-                label="Reporte mensual"
-              />
-            </FormGroup>
-
-            <Divider sx={{ my: 3 }} />
-
-            <Typography variant="h6" gutterBottom>
-              Horario de Notificaciones
-            </Typography>
-            
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Hora de inicio"
-                  type="time"
-                  fullWidth
-                  defaultValue="09:00"
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Hora de fin"
-                  type="time"
-                  fullWidth
-                  defaultValue="21:00"
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Grid>
-            </Grid>
+            <NotificationPreferences />
           </Box>
         </TabPanel>
 
@@ -1032,8 +943,7 @@ const Settings: React.FC = () => {
       <Dialog
         open={passwordDialogOpen}
         onClose={() => setPasswordDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        className="settings-dialog"
       >
         <DialogTitle>Cambiar Contraseña</DialogTitle>
         <DialogContent>
@@ -1125,8 +1035,7 @@ const Settings: React.FC = () => {
       <Dialog
         open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        className="settings-dialog"
       >
         <DialogTitle>Exportar Datos</DialogTitle>
         <DialogContent>
@@ -1183,8 +1092,7 @@ const Settings: React.FC = () => {
       <Dialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        className="confirm-dialog"
       >
         <DialogTitle color="error">
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1249,8 +1157,7 @@ const Settings: React.FC = () => {
       <Dialog
         open={resetDataDialogOpen}
         onClose={() => setResetDataDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        className="confirm-dialog"
       >
         <DialogTitle color="error">
           <Box sx={{ display: 'flex', alignItems: 'center' }}>

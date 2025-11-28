@@ -14,7 +14,8 @@ import {
     ListItemIcon,
     Chip,
     CircularProgress,
-    Alert
+    Alert,
+    Tooltip
 } from '@mui/material';
 import {
     Notifications as NotificationsIcon,
@@ -25,9 +26,14 @@ import {
     Info,
     Delete,
     DoneAll,
-    Clear
+    Clear,
+    Error,
+    CalendarToday,
+    Assessment,
+    Settings
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -44,24 +50,51 @@ interface Notification {
     isRead?: boolean;
     created_at?: string;
     createdAt?: string;
+    priority?: string;
+    actionUrl?: string;
 }
 
 const getNotificationIcon = (type: string) => {
     switch (type) {
         case 'budget_alert':
+        case 'budget_exceeded':
             return <Warning color="warning" />;
         case 'goal_achieved':
+        case 'payment_paid':
+        case 'success':
             return <CheckCircle color="success" />;
         case 'transaction':
             return <TrendingUp color="primary" />;
+        case 'payment_reminder':
+            return <CalendarToday color="info" />;
+        case 'payment_overdue':
+        case 'error':
+            return <Error color="error" />;
+        case 'weekly_report':
+        case 'monthly_report':
+            return <Assessment color="secondary" />;
         default:
             return <Info color="info" />;
+    }
+};
+
+const getPriorityColor = (priority?: string) => {
+    switch (priority) {
+        case 'urgent':
+            return '#ef4444';
+        case 'high':
+            return '#f59e0b';
+        case 'normal':
+            return '#3b82f6';
+        default:
+            return '#6b7280';
     }
 };
 
 const NotificationMenu: React.FC = () => {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const open = Boolean(anchorEl);
 
     // Fetch notifications
@@ -131,10 +164,53 @@ const NotificationMenu: React.FC = () => {
                 markAsReadMutation.mutate(notificationId);
             }
         }
+        
+        // Determine the best navigation URL based on notification type and data
+        let targetUrl = notification.actionUrl;
+        
+        if (!targetUrl) {
+            // Fallback based on notification type
+            switch (notification.type) {
+                case 'payment_reminder':
+                case 'payment_overdue':
+                case 'payment_paid':
+                    targetUrl = notification.data?.weeklyBudgetId 
+                        ? `/weekly-budget/${notification.data.weeklyBudgetId}`
+                        : '/payments';
+                    break;
+                case 'budget_alert':
+                case 'budget_exceeded':
+                    targetUrl = notification.data?.budgetId 
+                        ? `/weekly-budget/${notification.data.budgetId}`
+                        : '/budgets';
+                    break;
+                case 'transaction':
+                    targetUrl = '/transactions';
+                    break;
+                case 'weekly_report':
+                case 'monthly_report':
+                    targetUrl = '/analytics';
+                    break;
+                case 'household_invite':
+                case 'household_update':
+                    targetUrl = '/households';
+                    break;
+                default:
+                    targetUrl = '/notifications';
+            }
+        }
+        
+        handleClose();
+        navigate(targetUrl);
+    };
+
+    const handleSettingsClick = () => {
+        handleClose();
+        navigate('/settings?tab=notifications');
     };
 
     const notifications = data?.notifications || [];
-    const unreadCount = data?.unreadCount || 0;
+    const unreadCount = notifications.filter((n: Notification) => !n.isRead && !n.is_read).length;
 
     return (
         <>
@@ -175,26 +251,35 @@ const NotificationMenu: React.FC = () => {
                 
                 <Divider />
 
-                {notifications.length > 0 && (
-                    <Box sx={{ px: 2, py: 1, display: 'flex', gap: 1 }}>
-                        <Button
-                            size="small"
-                            startIcon={<DoneAll />}
-                            onClick={() => markAllAsReadMutation.mutate()}
-                            disabled={unreadCount === 0}
-                        >
-                            Marcar leídas
-                        </Button>
-                        <Button
-                            size="small"
-                            startIcon={<Clear />}
-                            onClick={() => clearAllMutation.mutate()}
-                            color="error"
-                        >
-                            Limpiar todo
-                        </Button>
+                <Box sx={{ px: 2, py: 1, display: 'flex', gap: 1, justifyContent: 'space-between' }}>
+                    <Box display="flex" gap={1}>
+                        {notifications.length > 0 && (
+                            <>
+                                <Button
+                                    size="small"
+                                    startIcon={<DoneAll />}
+                                    onClick={() => markAllAsReadMutation.mutate()}
+                                    disabled={unreadCount === 0}
+                                >
+                                    Marcar leídas
+                                </Button>
+                                <Button
+                                    size="small"
+                                    startIcon={<Clear />}
+                                    onClick={() => clearAllMutation.mutate()}
+                                    color="error"
+                                >
+                                    Limpiar
+                                </Button>
+                            </>
+                        )}
                     </Box>
-                )}
+                    <Tooltip title="Configurar notificaciones">
+                        <IconButton size="small" onClick={handleSettingsClick}>
+                            <Settings fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
 
                 <Divider />
 
@@ -226,6 +311,7 @@ const NotificationMenu: React.FC = () => {
                                             onClick={() => handleNotificationClick(notification)}
                                             sx={{
                                                 backgroundColor: (notification.isRead || notification.is_read) ? 'transparent' : 'action.hover',
+                                                borderLeft: notification.priority ? `3px solid ${getPriorityColor(notification.priority)}` : 'none',
                                                 '&:hover': {
                                                     backgroundColor: 'action.selected'
                                                 }

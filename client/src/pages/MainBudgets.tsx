@@ -1409,8 +1409,7 @@ const MainBudgets: React.FC = () => {
           setDeleteDialogOpen(false);
           setBudgetToDelete(null);
         }}
-        maxWidth="sm"
-        fullWidth
+        className="confirm-dialog"
       >
         <DialogTitle>Delete Budget</DialogTitle>
         <DialogContent>

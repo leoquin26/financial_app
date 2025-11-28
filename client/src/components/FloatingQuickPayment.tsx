@@ -2,18 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Fab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   TextField,
   Box,
   Typography,
-  Alert,
   Grid,
   Zoom,
-  IconButton,
   useTheme,
   useMediaQuery,
   InputAdornment,
@@ -21,21 +15,23 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Collapse,
+  Link,
 } from '@mui/material';
 import {
   FlashOn as FlashOnIcon,
-  Close as CloseIcon,
   AccountBalance as AccountBalanceIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { axiosInstance as axios } from '../config/api';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { getCurrencySymbol } from '../utils/currencies';
+import { FormModal, BaseModal } from './Modal';
 
 interface QuickPaymentForm {
   amount: number;
@@ -62,6 +58,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
   const [openBudgetDialog, setOpenBudgetDialog] = useState(false);
   const [pendingQuickTransaction, setPendingQuickTransaction] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showOptionalFields, setShowOptionalFields] = useState(false);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm<QuickPaymentForm>({
     defaultValues: {
@@ -155,6 +152,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
+    setShowOptionalFields(false);
   };
 
   const onSubmit = (data: QuickPaymentForm) => {
@@ -218,31 +216,25 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
         </Fab>
       </Zoom>
 
-      {/* Quick Payment Dialog */}
-      <Dialog 
-        open={openDialog} 
+      {/* Quick Payment Modal */}
+      <FormModal
+        open={openDialog}
         onClose={handleCloseDialog}
-        className="quick-payment-dialog"
+        title="Registro Rápido de Pago"
+        subtitle="Los pagos rápidos se registran automáticamente en la categoría Quick Payment"
+        icon={<FlashOnIcon />}
+        onSubmit={handleSubmit(onSubmit)}
+        submitText="Registrar Pago"
+        cancelText="Cancelar"
+        loading={quickTransactionMutation.isPending || isSubmitting}
+        submitButtonColor="secondary"
+        maxWidth="xs"
+        fullWidth={false}
+        transitionType={isMobile ? 'slide' : 'fade'}
+        className="quick-payment-modal"
       >
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <DialogTitle>
-            <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box display="flex" alignItems="center" gap={1}>
-                <FlashOnIcon color="secondary" />
-                <Typography variant="h6">Registro Rápido de Pago</Typography>
-              </Box>
-              <IconButton onClick={handleCloseDialog} size="small">
-                <CloseIcon />
-              </IconButton>
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            <Alert severity="info" sx={{ mb: 3, mt: 1 }}>
-              Los pagos rápidos se registran automáticamente en la categoría "Quick Payment"
-            </Alert>
-            
-            <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
                 <Controller
                   name="amount"
                   control={control}
@@ -258,20 +250,18 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
                       fullWidth
                       error={!!errors.amount}
                       helperText={errors.amount?.message}
+                      size="medium"
                       InputProps={{
                         startAdornment: (
-                          <InputAdornment position="start" sx={{ mr: 0 }}>
-                            <Typography 
-                              component="span" 
-                              sx={{ 
-                                color: 'text.primary',
-                                fontSize: '1rem',
-                                fontWeight: 400,
-                                mr: 0.5
-                              }}
-                            >
-                              {getCurrencySymbol(user?.currency || 'PEN')}
-                            </Typography>
+                          <InputAdornment position="start">
+                            <span style={{ 
+                              whiteSpace: 'nowrap', 
+                              fontSize: '16px',
+                              fontWeight: 500,
+                              lineHeight: 1
+                            }}>
+                              {user?.currency === 'USD' ? '$' : 'S/'}
+                            </span>
                           </InputAdornment>
                         ),
                       }}
@@ -280,7 +270,7 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <Controller
                   name="payment_method"
                   control={control}
@@ -302,56 +292,6 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
                 />
               </Grid>
 
-              <Grid item xs={12}>
-                <Box sx={{ 
-                  p: 2, 
-                  bgcolor: 'secondary.light',
-                  borderRadius: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2
-                }}>
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      bgcolor: 'secondary.main',
-                      color: 'white',
-                      borderRadius: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 24
-                    }}
-                  >
-                    ⚡
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight="bold">
-                      Quick Payment
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Categoría exclusiva para pagos rápidos
-                    </Typography>
-                  </Box>
-                </Box>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      label="Descripción (opcional)"
-                      fullWidth
-                      multiline
-                      rows={2}
-                    />
-                  )}
-                />
-              </Grid>
 
               <Grid item xs={12}>
                 <Controller
@@ -367,104 +307,152 @@ const FloatingQuickPayment: React.FC<FloatingQuickPaymentProps> = ({
                           fullWidth: true,
                           error: !!errors.date,
                           helperText: errors.date?.message,
+                          size: 'medium',
                         },
                       }}
                     />
                   )}
                 />
               </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancelar</Button>
-            <Button 
-              type="submit" 
-              variant="contained"
-              color="secondary"
-              startIcon={<FlashOnIcon />}
-              disabled={isSubmitting || quickTransactionMutation.isPending}
-            >
-              Registrar Pago
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
 
-      {/* Budget Creation Dialog */}
-      <Dialog 
-        open={openBudgetDialog} 
+              <Grid item xs={12}>
+                <Box sx={{ textAlign: 'center', mt: 1 }}>
+                  <Link
+                    component="button"
+                    type="button"
+                    variant="body2"
+                    onClick={() => setShowOptionalFields(!showOptionalFields)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    {showOptionalFields ? 'Ocultar campos opcionales' : 'Agregar descripción (opcional)'}
+                  </Link>
+                </Box>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Collapse in={showOptionalFields}>
+                  <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Descripción"
+                        fullWidth
+                        multiline
+                        rows={2}
+                        size="medium"
+                        sx={{ mt: 1 }}
+                      />
+                    )}
+                  />
+                </Collapse>
+              </Grid>
+            </Grid>
+      </FormModal>
+
+      {/* Budget Creation Modal */}
+      <BaseModal
+        open={openBudgetDialog}
         onClose={() => setOpenBudgetDialog(false)}
-        className="budget-dialog"
+        title="Crear Presupuesto Rápido"
+        subtitle="No tienes un presupuesto activo. Necesitas crear uno para registrar pagos rápidos."
+        icon={<AccountBalanceIcon />}
+        maxWidth="sm"
+        showCloseButton={true}
+        transitionType={isMobile ? 'slide' : 'fade'}
+        actions={
+          <>
+            <Button 
+              onClick={() => {
+                setOpenBudgetDialog(false);
+                setPendingQuickTransaction(null);
+              }}
+              variant="outlined"
+              fullWidth
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => createQuickBudgetMutation.mutate({ monthlyIncome: 0 })}
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              disabled={createQuickBudgetMutation.isPending}
+              fullWidth
+            >
+              {createQuickBudgetMutation.isPending ? 'Creando...' : 'Crear Presupuesto'}
+            </Button>
+          </>
+        }
       >
-        <DialogTitle>
-          <Box display="flex" alignItems="center" gap={1}>
-            <AccountBalanceIcon color="primary" />
-            Crear Presupuesto Rápido
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Alert severity="info" sx={{ mb: 3 }}>
-            No tienes un presupuesto activo. Necesitas crear uno para registrar pagos rápidos.
-          </Alert>
-          
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Presupuesto Mensual Rápido
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Se creará un presupuesto básico con las siguientes categorías:
-            </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: { xs: '50vh', sm: '60vh' }, overflow: 'hidden' }}>
+            <Box>
+              <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+                Presupuesto Mensual Rápido
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Se creará un presupuesto básico con las siguientes categorías:
+              </Typography>
+            </Box>
             
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom>Categorías incluidas (Presupuesto Semanal):</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <span>⚡</span>
-                  <Typography variant="body2">Quick Payment - S/ 125</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <span>🍔</span>
-                  <Typography variant="body2">Alimentación - S/ 75</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <span>🚗</span>
-                  <Typography variant="body2">Transporte - S/ 75</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <span>📦</span>
-                  <Typography variant="body2">Otros Gastos - S/ 75</Typography>
-                </Box>
-              </Box>
-              <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                <Typography variant="subtitle2">
-                  Total Semanal: S/ {(125 + 75 + 75 + 75).toFixed(2)}
+            <Box sx={{ 
+              p: { xs: 1.5, sm: 2 }, 
+              bgcolor: 'background.paper', 
+              borderRadius: 1,
+              flex: 1,
+              overflowY: 'auto',
+              minHeight: 0
+            }}>
+              <Typography variant="subtitle2" gutterBottom fontWeight="medium">
+                Categorías incluidas (Presupuesto Semanal):
+              </Typography>
+              <Grid container spacing={1} sx={{ mt: 1 }}>
+                {[
+                  { icon: '⚡', name: 'Quick Payment', amount: 125 },
+                  { icon: '🍔', name: 'Alimentación', amount: 75 },
+                  { icon: '🚗', name: 'Transporte', amount: 75 },
+                  { icon: '📦', name: 'Otros Gastos', amount: 75 },
+                ].map((category, index) => (
+                  <Grid item xs={12} key={index}>
+                    <Box sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1,
+                      py: 0.75
+                    }}>
+                      <Box sx={{ fontSize: { xs: 18, sm: 20 }, width: 28, textAlign: 'center' }}>
+                        {category.icon}
+                      </Box>
+                      <Typography variant="body2" sx={{ flex: 1 }}>
+                        {category.name}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="medium">
+                        S/ {category.amount}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+              <Box sx={{ 
+                mt: 2, 
+                pt: 2, 
+                borderTop: 1, 
+                borderColor: 'divider',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <Typography variant="subtitle2" fontWeight="bold">
+                  Total Semanal:
+                </Typography>
+                <Typography variant="subtitle2" fontWeight="bold" color="primary">
+                  S/ 350.00
                 </Typography>
               </Box>
             </Box>
           </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {
-            setOpenBudgetDialog(false);
-            setPendingQuickTransaction(null);
-          }}>
-            Cancelar
-          </Button>
-          <Button 
-            onClick={() => {
-              createQuickBudgetMutation.mutate({
-                monthlyIncome: 0
-              });
-            }}
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            disabled={createQuickBudgetMutation.isPending}
-          >
-            Crear Presupuesto
-          </Button>
-        </DialogActions>
-      </Dialog>
+      </BaseModal>
     </>
   );
 };

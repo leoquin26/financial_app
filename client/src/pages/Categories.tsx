@@ -631,8 +631,7 @@ const Categories: React.FC = () => {
       <Dialog 
         open={deleteError.open} 
         onClose={() => setDeleteError({ open: false, message: '' })}
-        maxWidth="sm"
-        fullWidth
+        className="confirm-dialog"
       >
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>

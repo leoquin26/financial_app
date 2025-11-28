@@ -994,8 +994,7 @@ const HouseholdDetail: React.FC = () => {
       <Dialog
         open={settingsDialogOpen}
         onClose={() => setSettingsDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
+        className="settings-dialog"
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1262,8 +1261,7 @@ const HouseholdDetail: React.FC = () => {
       <Dialog
         open={permissionsDialogOpen}
         onClose={() => setPermissionsDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        className="settings-dialog"
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

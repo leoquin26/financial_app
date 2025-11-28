@@ -5,7 +5,12 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "predeploy:check": "node scripts/preDeploymentCheck.js",
+    "predeploy:sync": "node scripts/syncPaymentStatuses.js",
+    "predeploy:cleanup": "node scripts/cleanupDuplicateTransactions.js",
+    "migrate": "node scripts/syncPaymentStatuses.js && node scripts/cleanupDuplicateTransactions.js",
+    "postinstall": "node scripts/postInstallMigration.js || true"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -19,6 +24,8 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.1",
     "socket.io": "^4.6.1"
   },
   "devDependencies": {

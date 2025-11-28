@@ -372,10 +372,20 @@ router.get('/range', auth, async (req, res) => {
         }
       ]
     })
+    .populate('categories.categoryId')
     .populate('allocations.categoryId')
     .sort('-weekStartDate');
 
     console.log(`Found ${budgets.length} budgets for date range`);
+    
+    // Log categories and payments for debugging
+    budgets.forEach(budget => {
+      console.log(`Budget ${budget._id}: ${budget.categories?.length || 0} categories`);
+      budget.categories?.forEach(cat => {
+        console.log(`  Category ${cat.categoryId?.name || 'unknown'}: ${cat.payments?.length || 0} payments`);
+      });
+    });
+    
     res.json(budgets);
   } catch (error) {
     console.error('Error fetching budgets by range:', error);
@@ -1276,16 +1286,109 @@ router.patch('/:budgetId/payment/:paymentId/status', auth, async (req, res) => {
       return res.status(404).json({ error: 'Payment not found' });
     }
     
+    // Find the actual paymentScheduleId from the budget payment
+    let actualPaymentScheduleId = null;
+    for (const cat of budget.categories) {
+      const payment = cat.payments.find(p => 
+        p.paymentScheduleId?.toString() === paymentId ||
+        p._id.toString() === paymentId
+      );
+      if (payment) {
+        // Use paymentScheduleId if available, otherwise use the paymentId directly
+        actualPaymentScheduleId = payment.paymentScheduleId || paymentId;
+        break;
+      }
+    }
+    
     await budget.save();
     await budget.populate('categories.categoryId');
     await budget.populate('categories.payments.paidBy', 'name email');
     
-    // Also update PaymentSchedule if exists
-    await PaymentSchedule.findByIdAndUpdate(paymentId, { 
-      status,
-      paidDate: status === 'paid' ? new Date() : undefined,
-      paidBy: status === 'paid' ? (paidBy || req.user._id) : undefined
-    });
+    // Also update PaymentSchedule if exists - use the correct ID
+    let paymentSchedule = null;
+    if (actualPaymentScheduleId) {
+      paymentSchedule = await PaymentSchedule.findByIdAndUpdate(actualPaymentScheduleId, { 
+        status,
+        paidDate: status === 'paid' ? new Date() : undefined,
+        paidBy: status === 'paid' ? (paidBy || req.user._id) : undefined
+      }, { new: true });
+      
+      if (paymentSchedule) {
+        console.log(`Updated PaymentSchedule ${actualPaymentScheduleId} status to ${status}`);
+      } else {
+        console.log(`PaymentSchedule ${actualPaymentScheduleId} not found, trying paymentId directly`);
+        // Try with the original paymentId
+        paymentSchedule = await PaymentSchedule.findByIdAndUpdate(paymentId, { 
+          status,
+          paidDate: status === 'paid' ? new Date() : undefined,
+          paidBy: status === 'paid' ? (paidBy || req.user._id) : undefined
+        }, { new: true });
+      }
+    }
+
+    // Create or delete transaction based on status
+    if (status === 'paid') {
+      // Use the correct ID for checking existing transaction
+      const scheduleIdToCheck = actualPaymentScheduleId || paymentId;
+      
+      // Check if transaction already exists
+      const existingTransaction = await Transaction.findOne({
+        $or: [
+          { paymentScheduleId: scheduleIdToCheck },
+          { paymentScheduleId: paymentId },
+          { 'data.budgetPaymentId': paymentId }
+        ]
+      });
+
+      if (!existingTransaction) {
+        // Find the payment details from the budget
+        let paymentDetails = null;
+        let categoryDetails = null;
+        for (const cat of budget.categories) {
+          const payment = cat.payments.find(p => 
+            p.paymentScheduleId?.toString() === paymentId ||
+            p._id.toString() === paymentId
+          );
+          if (payment) {
+            paymentDetails = payment;
+            categoryDetails = cat.categoryId;
+            break;
+          }
+        }
+
+        if (paymentDetails) {
+          const User = require('../models/User');
+          const user = await User.findById(req.user._id);
+          
+          const transaction = new Transaction({
+            userId: req.user._id,
+            type: 'expense',
+            amount: paymentDetails.amount,
+            categoryId: categoryDetails?._id || paymentSchedule?.categoryId,
+            description: `Pago: ${paymentDetails.name}`,
+            date: new Date(),
+            paymentScheduleId: scheduleIdToCheck,
+            currency: user?.currency || 'PEN'
+          });
+
+          await transaction.save();
+          console.log('Transaction created for budget payment:', transaction._id);
+        }
+      }
+    } else {
+      // If reverting from paid, delete the transaction
+      const scheduleIdToDelete = actualPaymentScheduleId || paymentId;
+      const deletedTransaction = await Transaction.findOneAndDelete({
+        $or: [
+          { paymentScheduleId: scheduleIdToDelete },
+          { paymentScheduleId: paymentId },
+          { 'data.budgetPaymentId': paymentId }
+        ]
+      });
+      if (deletedTransaction) {
+        console.log('Deleted transaction for reverted payment:', deletedTransaction._id);
+      }
+    }
     
     res.json(budget);
   } catch (error) {
@@ -2305,6 +2408,116 @@ router.patch('/:budgetId/payment/:paymentId', auth, async (req, res) => {
     // Populate and return
     await budget.populate('categories.categoryId');
     await budget.populate('categories.payments.paidBy', 'name email');
+
+    // IMPORTANT: Also update PaymentSchedule if this payment is linked to one
+    // Find the payment to get its paymentScheduleId
+    let linkedPaymentScheduleId = null;
+    for (const cat of budget.categories) {
+      const payment = cat.payments.find(p => 
+        p._id.toString() === paymentId || 
+        p.paymentScheduleId?.toString() === paymentId
+      );
+      if (payment) {
+        linkedPaymentScheduleId = payment.paymentScheduleId || null;
+        // Also check if paymentId itself is a PaymentSchedule ID
+        if (!linkedPaymentScheduleId) {
+          const existingSchedule = await PaymentSchedule.findById(paymentId);
+          if (existingSchedule) {
+            linkedPaymentScheduleId = paymentId;
+          }
+        }
+        break;
+      }
+    }
+
+    // Update PaymentSchedule if exists
+    if (linkedPaymentScheduleId) {
+      const updateData = {};
+      if (status !== undefined) updateData.status = status;
+      if (name !== undefined) updateData.name = name;
+      if (amount !== undefined) updateData.amount = amount;
+      if (scheduledDate !== undefined) updateData.dueDate = scheduledDate;
+      if (notes !== undefined) updateData.notes = notes;
+      if (status === 'paid') {
+        updateData.paidDate = new Date();
+        updateData.paidBy = paidBy || req.user._id;
+      } else if (status !== undefined) {
+        updateData.paidDate = null;
+        updateData.paidBy = null;
+      }
+
+      const updatedSchedule = await PaymentSchedule.findByIdAndUpdate(
+        linkedPaymentScheduleId,
+        updateData,
+        { new: true }
+      );
+      
+      if (updatedSchedule) {
+        console.log(`[Payment Update] Also updated PaymentSchedule ${linkedPaymentScheduleId} - status: ${status}`);
+      } else {
+        console.log(`[Payment Update] PaymentSchedule ${linkedPaymentScheduleId} not found for sync`);
+      }
+    } else {
+      console.log(`[Payment Update] No linked PaymentSchedule found for payment ${paymentId}`);
+    }
+
+    // Create or delete transaction based on status change
+    if (status === 'paid') {
+      // Check if transaction already exists
+      const existingTransaction = await Transaction.findOne({
+        $or: [
+          { paymentScheduleId: paymentId },
+          { 'data.budgetPaymentId': paymentId }
+        ]
+      });
+
+      if (!existingTransaction) {
+        // Find the payment details from the budget
+        let paymentDetails = null;
+        let categoryDetails = null;
+        for (const cat of budget.categories) {
+          const payment = cat.payments.find(p => 
+            p.paymentScheduleId?.toString() === paymentId ||
+            p._id.toString() === paymentId
+          );
+          if (payment) {
+            paymentDetails = payment;
+            categoryDetails = cat.categoryId;
+            break;
+          }
+        }
+
+        if (paymentDetails) {
+          const User = require('../models/User');
+          const user = await User.findById(req.user._id);
+          
+          const transaction = new Transaction({
+            userId: req.user._id,
+            type: 'expense',
+            amount: paymentDetails.amount || amount,
+            categoryId: categoryDetails?._id,
+            description: `Pago: ${paymentDetails.name || name}`,
+            date: new Date(),
+            paymentScheduleId: paymentDetails.paymentScheduleId || null,
+            currency: user?.currency || 'PEN'
+          });
+
+          await transaction.save();
+          console.log('[Payment Update] Transaction created:', transaction._id);
+        }
+      }
+    } else if (status !== undefined && status !== 'paid') {
+      // If status changed to non-paid, delete any existing transaction
+      const deletedTransaction = await Transaction.findOneAndDelete({
+        $or: [
+          { paymentScheduleId: paymentId },
+          { 'data.budgetPaymentId': paymentId }
+        ]
+      });
+      if (deletedTransaction) {
+        console.log('[Payment Update] Deleted transaction:', deletedTransaction._id);
+      }
+    }
     
     console.log(`[Payment Update] Successfully completed update for payment ${paymentId}`);
     res.json(budget);

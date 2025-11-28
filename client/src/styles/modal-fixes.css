@@ -1,447 +1,281 @@
-/* Modal and Dialog Comprehensive Fixes */
-
 /* ===========================
-   GLOBAL DIALOG STYLES
+   STANDARDIZED MODAL STYLES
+   All modals: max-width 420px, centered
    =========================== */
 
-/* Base dialog fixes - much smaller and centered */
-.MuiDialog-root {
-  z-index: 1300 !important;
-}
-
-.MuiDialog-container {
+/* Force all dialogs to be compact and centered */
+.MuiDialog-root .MuiDialog-container {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  padding: 16px !important;
 }
 
-.MuiDialog-paper {
-  margin: auto !important;
+/* MAIN MODAL PAPER STYLES - 450px max, 50% width */
+.MuiDialog-root .MuiDialog-paper {
+  margin: 0 !important;
   border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
-  max-height: 60vh !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2) !important;
+  max-height: calc(100vh - 64px) !important;
+  width: 50% !important;
+  max-width: 450px !important;
+  min-width: 280px !important;
   position: relative !important;
-  width: 90% !important;
-  max-width: 380px !important;
+  overflow: hidden !important;
+}
+
+/* Override ALL size variants - 450px max, 50% width */
+.MuiDialog-root .MuiDialog-paperWidthXs,
+.MuiDialog-root .MuiDialog-paperWidthSm,
+.MuiDialog-root .MuiDialog-paperWidthMd,
+.MuiDialog-root .MuiDialog-paperWidthLg,
+.MuiDialog-root .MuiDialog-paperWidthXl,
+.MuiDialog-root .MuiDialog-paperFullWidth {
+  max-width: 450px !important;
+  width: 50% !important;
+}
+
+/* PREVENT FULL SCREEN */
+.MuiDialog-root .MuiDialog-paperFullScreen {
+  max-width: 450px !important;
+  width: calc(100% - 32px) !important;
+  max-height: calc(100vh - 64px) !important;
   height: auto !important;
-  min-height: auto !important;
+  margin: 16px !important;
+  border-radius: 12px !important;
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
 }
 
-/* Size constraints for different dialog types - much smaller */
-.MuiDialog-paperWidthSm {
-  max-width: 320px !important;
+/* ===========================
+   SPECIFIC MODAL TYPES
+   All use 450px standard
+   =========================== */
+
+/* Quick Payment */
+.quick-payment-modal .MuiDialog-paper,
+.quick-payment-dialog .MuiDialog-paper {
+  max-width: 450px !important;
 }
 
-.MuiDialog-paperWidthMd {
-  max-width: 380px !important;
+/* Transaction Modal */
+.transaction-dialog .MuiDialog-paper {
+  max-width: 450px !important;
 }
 
-.MuiDialog-paperWidthLg {
-  max-width: 440px !important;
+/* Category Modal */
+.category-dialog .MuiDialog-paper {
+  max-width: 450px !important;
 }
 
-.MuiDialog-paperWidthXl {
-  max-width: 480px !important;
+/* Budget Modal */
+.budget-dialog .MuiDialog-paper {
+  max-width: 450px !important;
 }
 
-.MuiDialog-paperFullWidth {
-  max-width: 380px !important;
+/* Confirm/Delete Modal - slightly smaller */
+.confirm-dialog .MuiDialog-paper,
+.delete-dialog .MuiDialog-paper {
+  max-width: 400px !important;
 }
 
-/* Specific dialog types - compact sizes */
-.transaction-dialog .MuiDialog-paper,
-.quick-payment-dialog .MuiDialog-paper,
-.budget-dialog .MuiDialog-paper,
-.category-dialog .MuiDialog-paper,
-.edit-dialog .MuiDialog-paper,
-.share-dialog .MuiDialog-paper {
-  max-width: 360px !important;
-  width: 90% !important;
+/* Payment Dialog */
+.payment-dialog .MuiDialog-paper {
+  max-width: 450px !important;
 }
 
-/* Responsive dialog sizes */
-@media (max-width: 600px) {
-  .MuiDialog-paper {
-    margin: 16px !important;
-    max-height: 70vh !important;
-    max-width: calc(100vw - 40px) !important;
-    width: calc(100vw - 40px) !important;
-    min-width: 280px !important;
-  }
-  
-  /* All dialog types compact on mobile */
-  .transaction-dialog .MuiDialog-paper,
-  .quick-payment-dialog .MuiDialog-paper,
-  .budget-dialog .MuiDialog-paper,
-  .category-dialog .MuiDialog-paper,
-  .edit-dialog .MuiDialog-paper,
-  .share-dialog .MuiDialog-paper {
-    max-width: calc(100vw - 40px) !important;
-    width: calc(100vw - 40px) !important;
-  }
+/* Settings Dialog */
+.settings-dialog .MuiDialog-paper {
+  max-width: 450px !important;
 }
 
-/* Prevent full screen */
-.MuiDialog-paperFullScreen {
-  display: none !important;
+/* Household Dialog */
+.household-dialog .MuiDialog-paper,
+.invite-dialog .MuiDialog-paper {
+  max-width: 450px !important;
+}
+
+/* Share/Edit Dialog */
+.share-dialog .MuiDialog-paper,
+.edit-dialog .MuiDialog-paper {
+  max-width: 450px !important;
 }
 
 /* ===========================
    DIALOG HEADER
    =========================== */
 
-.MuiDialogTitle-root {
-  padding: 14px 18px !important;
-  font-size: 1.05rem !important;
+.MuiDialog-root .MuiDialogTitle-root {
+  padding: 20px 24px 16px !important;
+  font-size: 1.25rem !important;
   font-weight: 600 !important;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12) !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-}
-
-.MuiDialogTitle-root svg {
-  font-size: 1.2rem !important;
+  line-height: 1.4 !important;
 }
 
 /* ===========================
    DIALOG CONTENT
    =========================== */
 
-.MuiDialogContent-root {
-  padding: 16px 18px !important;
+.MuiDialog-root .MuiDialogContent-root {
+  padding: 0 24px 20px !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  max-height: calc(50vh - 100px) !important;
 }
 
-/* Ensure proper scrolling */
-.MuiDialogContent-root::-webkit-scrollbar {
-  width: 8px;
-}
-
-.MuiDialogContent-root::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-}
-
-.MuiDialogContent-root::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+.MuiDialog-root .MuiDialogContent-dividers {
+  border-top: none !important;
+  border-bottom: none !important;
+  padding-top: 16px !important;
 }
 
 /* ===========================
    DIALOG ACTIONS
    =========================== */
 
-.MuiDialogActions-root {
-  padding: 12px 18px !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
-  gap: 8px !important;
+.MuiDialog-root .MuiDialogActions-root {
+  padding: 16px 24px 20px !important;
+  gap: 12px !important;
+  justify-content: flex-end !important;
 }
 
 /* ===========================
-   FORM ELEMENTS IN DIALOGS
+   FORM ELEMENTS
    =========================== */
 
-/* Text Fields */
-.MuiDialog-paper .MuiTextField-root {
-  margin-bottom: 0 !important;
-}
-
-.MuiDialog-paper .MuiFormControl-root {
-  margin-bottom: 0 !important;
-}
-
-/* Ensure proper input heights */
-.MuiDialog-paper .MuiInputBase-root {
-  min-height: 56px !important;
-}
-
-.MuiDialog-paper .MuiInputBase-input {
-  padding: 14px !important;
-  font-size: 16px !important; /* Prevent zoom on mobile */
-}
-
-/* Input Labels */
-.MuiDialog-paper .MuiInputLabel-root {
-  font-size: 14px !important;
-  transform: translate(14px, 16px) scale(1) !important;
-}
-
-.MuiDialog-paper .MuiInputLabel-shrink {
-  transform: translate(14px, -9px) scale(0.75) !important;
-  background: white !important;
-  padding: 0 4px !important;
-}
-
-/* Dark mode label background */
-@media (prefers-color-scheme: dark) {
-  .MuiDialog-paper .MuiInputLabel-shrink {
-    background: #1e1e1e !important;
-  }
-}
-
-/* Select Fields */
-.MuiDialog-paper .MuiSelect-select {
-  padding: 14px !important;
-  min-height: 28px !important;
-  display: flex !important;
-  align-items: center !important;
-}
-
-/* InputAdornment alignment */
-.MuiDialog-paper .MuiInputAdornment-root {
-  color: rgba(0, 0, 0, 0.87) !important;
-}
-
-.MuiDialog-paper .MuiInputAdornment-positionStart {
-  margin-right: 0 !important;
-  margin-left: 0 !important;
-}
-
-.MuiDialog-paper .MuiInputAdornment-positionEnd {
-  margin-left: 4px !important;
-}
-
-/* Currency symbol in InputAdornment */
-.MuiDialog-paper .MuiInputAdornment-root .MuiTypography-root {
-  font-size: 16px !important;
-  font-weight: 400 !important;
-  line-height: 1.5 !important;
-  color: rgba(0, 0, 0, 0.87) !important;
-}
-
-/* Amount input with currency */
-.MuiDialog-paper .MuiTextField-root .MuiInputBase-root.MuiInput-root,
-.MuiDialog-paper .MuiTextField-root .MuiInputBase-root.MuiOutlinedInput-root {
-  padding-left: 0 !important;
-}
-
-.MuiDialog-paper .MuiTextField-root .MuiInputAdornment-positionStart + .MuiInputBase-input {
-  padding-left: 0 !important;
-}
-
-/* ===========================
-   GRID SPACING IN DIALOGS
-   =========================== */
-
-.MuiDialog-paper .MuiGrid-container {
-  margin-top: 8px !important;
-}
-
-.MuiDialog-paper .MuiGrid-item {
-  padding-top: 12px !important;
-  padding-bottom: 12px !important;
-}
-
-/* ===========================
-   SPECIFIC MODAL FIXES
-   =========================== */
-
-/* Transaction Dialog */
-.transaction-dialog .MuiDialog-paper {
-  max-width: 560px !important;
-  min-width: 320px !important;
-  width: auto !important;
-  max-height: 85vh !important;
-  height: auto !important;
-}
-
-.transaction-dialog .MuiDialogContent-root {
-  padding-top: 16px !important;
-  min-height: 400px !important;
-}
-
-.transaction-dialog .MuiGrid-container {
-  margin-top: 0 !important;
-}
-
-/* Quick Payment Dialog */
-.quick-payment-dialog {
-  max-width: 480px !important;
-}
-
-.quick-payment-dialog .MuiDialogContent-root {
-  padding: 20px !important;
-}
-
-/* Category Dialog */
-.category-dialog .MuiDialogContent-root {
-  min-height: 300px !important;
-}
-
-/* Budget Dialog */
-.budget-dialog {
-  max-width: 520px !important;
-}
-
-/* ===========================
-   BUTTONS IN DIALOGS
-   =========================== */
-
-.MuiDialog-paper .MuiButton-root {
-  padding: 10px 20px !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  text-transform: none !important;
-}
-
-.MuiDialog-paper .MuiButton-containedPrimary {
-  min-width: 100px !important;
-}
-
-/* ===========================
-   CHECKBOX AND RADIO
-   =========================== */
-
-.MuiDialog-paper .MuiCheckbox-root,
-.MuiDialog-paper .MuiRadio-root {
-  padding: 9px !important;
-}
-
-.MuiDialog-paper .MuiFormControlLabel-root {
-  margin-left: 0 !important;
-  margin-right: 16px !important;
-}
-
-/* ===========================
-   ALERTS IN DIALOGS
-   =========================== */
-
-.MuiDialog-paper .MuiAlert-root {
+.MuiDialog-root .MuiTextField-root,
+.MuiDialog-root .MuiFormControl-root {
   margin-bottom: 16px !important;
+}
+
+.MuiDialog-root .MuiTextField-root:last-child,
+.MuiDialog-root .MuiFormControl-root:last-child {
+  margin-bottom: 0 !important;
+}
+
+.MuiDialog-root .MuiOutlinedInput-root {
   border-radius: 8px !important;
 }
 
-/* ===========================
-   DATE PICKER IN DIALOGS
-   =========================== */
-
-.MuiDialog-paper .MuiDatePicker-root {
-  width: 100% !important;
+.MuiDialog-root .MuiInputBase-input {
+  font-size: 16px !important;
 }
 
-/* ===========================
-   MOBILE SPECIFIC FIXES
-   =========================== */
-
-@media (max-width: 600px) {
-  /* Adjust padding for mobile */
-  .MuiDialogTitle-root {
-    padding: 16px !important;
-    font-size: 1.1rem !important;
-  }
-  
-  .MuiDialogContent-root {
-    padding: 16px !important;
-  }
-  
-  .MuiDialogActions-root {
-    padding: 12px 16px !important;
-    flex-direction: row !important;
-    justify-content: flex-end !important;
-  }
-  
-  /* Ensure inputs don't cause zoom on iOS */
-  .MuiDialog-paper input,
-  .MuiDialog-paper select,
-  .MuiDialog-paper textarea {
-    font-size: 16px !important;
-  }
-  
-  /* Stack grid items on mobile */
-  .MuiDialog-paper .MuiGrid-item {
-    padding: 8px !important;
-  }
+/* Fix InputAdornment currency symbol - prevent line breaks */
+.MuiDialog-root .MuiInputAdornment-root {
+  margin-right: 8px !important;
+  height: auto !important;
+  max-height: none !important;
+  white-space: nowrap !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
 }
 
-/* ===========================
-   DARK MODE SUPPORT
-   =========================== */
-
-@media (prefers-color-scheme: dark) {
-  .MuiDialog-paper {
-    background-color: #1e1e1e !important;
-    color: rgba(255, 255, 255, 0.9) !important;
-  }
-  
-  .MuiDialogTitle-root {
-    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
-  }
-  
-  .MuiDialogActions-root {
-    border-top-color: rgba(255, 255, 255, 0.12) !important;
-  }
-  
-  .MuiDialog-paper .MuiInputAdornment-root {
-    color: rgba(255, 255, 255, 0.9) !important;
-  }
-  
-  .MuiDialog-paper .MuiInputAdornment-root .MuiTypography-root {
-    color: rgba(255, 255, 255, 0.9) !important;
-  }
-  
-  .MuiDialog-paper .MuiInputBase-root {
-    color: rgba(255, 255, 255, 0.9) !important;
-  }
-  
-  .MuiDialog-paper .MuiInputLabel-root {
-    color: rgba(255, 255, 255, 0.7) !important;
-  }
+.MuiDialog-root .MuiInputAdornment-positionStart {
+  margin-left: 0 !important;
+  margin-right: 8px !important;
 }
 
-/* ===========================
-   BACKDROP
-   =========================== */
-
-.MuiBackdrop-root {
-  background-color: rgba(0, 0, 0, 0.5) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+.MuiDialog-root .MuiInputAdornment-root > p,
+.MuiDialog-root .MuiInputAdornment-root > span,
+.MuiDialog-root .MuiInputAdornment-root .MuiTypography-root {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  color: inherit !important;
+  white-space: nowrap !important;
+  display: inline-block !important;
 }
 
-/* ===========================
-   Z-INDEX MANAGEMENT
-   =========================== */
-
-.MuiDialog-root {
-  z-index: 1300 !important;
-}
-
-/* Fix backdrop for dialogs */
-.MuiDialog-root .MuiBackdrop-root {
-  z-index: -1 !important;
-  position: fixed !important;
-}
-
-.MuiDialog-paper {
-  z-index: 1301 !important;
-}
-
-/* ===========================
-   MENU FIXES (Profile, etc.)
-   =========================== */
-
-/* Fix Menu backdrop and positioning */
-.MuiMenu-root {
-  z-index: 1300 !important;
-}
-
-.MuiMenu-paper {
-  z-index: 1301 !important;
-}
-
-/* Remove backdrop for Menu components */
-.MuiMenu-root .MuiBackdrop-root,
-.MuiPopover-root .MuiBackdrop-root {
+/* Ensure the notranslate span doesn't break layout */
+.MuiDialog-root .MuiInputAdornment-root .notranslate {
   display: none !important;
 }
 
-/* Alternative: Make menu backdrop transparent and non-blocking */
-.MuiMenu-root .MuiModal-backdrop,
-.MuiPopover-root .MuiModal-backdrop {
-  background-color: transparent !important;
+/* ===========================
+   BUTTONS
+   =========================== */
+
+.MuiDialog-root .MuiButton-root {
+  padding: 10px 24px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  border-radius: 8px !important;
+  min-width: 90px !important;
+}
+
+/* ===========================
+   MOBILE RESPONSIVE
+   =========================== */
+
+@media (max-width: 480px) {
+  .MuiDialog-root .MuiDialog-container {
+    padding: 16px !important;
+  }
+  
+  .MuiDialog-root .MuiDialog-paper {
+    max-width: calc(100vw - 32px) !important;
+    width: calc(100vw - 32px) !important;
+    max-height: calc(100vh - 48px) !important;
+    border-radius: 12px !important;
+  }
+  
+  .MuiDialog-root .MuiDialog-paperFullScreen {
+    max-width: calc(100vw - 32px) !important;
+    width: calc(100vw - 32px) !important;
+    max-height: calc(100vh - 48px) !important;
+    border-radius: 12px !important;
+  }
+  
+  .MuiDialog-root .MuiDialogTitle-root {
+    padding: 14px 16px 10px !important;
+    font-size: 1rem !important;
+  }
+  
+  .MuiDialog-root .MuiDialogContent-root {
+    padding: 0 16px 14px !important;
+  }
+  
+  .MuiDialog-root .MuiDialogActions-root {
+    padding: 10px 16px 14px !important;
+  }
+  
+  /* Prevent zoom on iOS */
+  .MuiDialog-root input,
+  .MuiDialog-root select,
+  .MuiDialog-root textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ===========================
+   DARK MODE
+   =========================== */
+
+@media (prefers-color-scheme: dark) {
+  .MuiDialog-root .MuiDialog-paper {
+    background-color: #1e1e1e !important;
+  }
+}
+
+/* ===========================
+   BACKDROP - Simple, non-blocking
+   =========================== */
+
+.MuiDialog-root .MuiBackdrop-root {
+  background-color: rgba(0, 0, 0, 0.5) !important;
   backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+}
+
+/* ===========================
+   MENU/POPOVER - No backdrop
+   =========================== */
+
+.MuiMenu-root .MuiBackdrop-root,
+.MuiPopover-root .MuiBackdrop-root {
+  background-color: transparent !important;
 }

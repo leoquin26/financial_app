@@ -218,6 +218,23 @@ connectDB().then(async () => {
         console.error('Failed to fix week dates:', error);
     }
     
+    // Run startup migrations (sync payment statuses, cleanup duplicates)
+    const runStartupMigrations = require('./scripts/startupMigrations');
+    try {
+        await runStartupMigrations();
+    } catch (error) {
+        console.error('Failed to run startup migrations:', error);
+    }
+    
+    // Initialize notification scheduler
+    const { initializeScheduler } = require('./services/notificationScheduler');
+    try {
+        initializeScheduler();
+        console.log('Notification scheduler initialized');
+    } catch (error) {
+        console.error('Failed to initialize notification scheduler:', error);
+    }
+    
     const PORT = process.env.PORT || 5000;
     
     // For Vercel, we export the app instead of listening

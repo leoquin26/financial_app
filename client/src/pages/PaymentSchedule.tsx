@@ -40,7 +40,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../config/api';
-import { format, startOfWeek, endOfWeek, addDays, isSameDay, parseISO } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, isSameDay, parseISO } from 'date-fns';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -104,6 +104,7 @@ const PaymentScheduleComponent: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentSchedule | null>(null);
   const [selectedWeek, setSelectedWeek] = useState(new Date());
+  const [calendarView, setCalendarView] = useState<'day' | 'week' | 'month'>('week');
   const [formData, setFormData] = useState<PaymentFormData>({
     name: '',
     amount: 0,
@@ -128,21 +129,35 @@ const PaymentScheduleComponent: React.FC = () => {
     }
   });
 
-  // Fetch payments
-  const { data: payments = [], isLoading } = useQuery({
-    queryKey: ['payments', selectedWeek],
+  // Fetch ALL payments without date filtering - let the backend return everything
+  // This ensures payments always show up regardless of which date range is being viewed
+  const { data: payments = [], isLoading, refetch: refetchPayments, error: paymentsError } = useQuery({
+    queryKey: ['allPayments'],
     queryFn: async () => {
-      const weekStart = startOfWeek(selectedWeek, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(selectedWeek, { weekStartsOn: 1 });
-      const response = await axios.get('/api/payments', {
-        params: {
-          from: format(weekStart, 'yyyy-MM-dd'),
-          to: format(weekEnd, 'yyyy-MM-dd')
-        }
-      });
-      return response.data;
-    }
+      console.log('=== FETCHING ALL PAYMENTS ===');
+      
+      try {
+        // Don't pass date filters - get all payments for this user
+        const response = await axios.get('/api/payments/all');
+        console.log('API Response status:', response.status);
+        console.log('Payments received:', response.data?.length || 0, 'payments');
+        console.log('Payments data:', response.data);
+        return response.data || [];
+      } catch (error: any) {
+        console.error('Error fetching payments:', error);
+        console.error('Error response:', error.response?.data);
+        throw error;
+      }
+    },
+    staleTime: 10000, // Consider data fresh for 10 seconds
+    refetchOnWindowFocus: true,
+    retry: 2,
   });
+  
+  // Log any query errors
+  if (paymentsError) {
+    console.error('Payments query error:', paymentsError);
+  }
 
   // Fetch upcoming payments
   const { data: upcomingPayments = [] } = useQuery({
@@ -153,48 +168,66 @@ const PaymentScheduleComponent: React.FC = () => {
     }
   });
 
-  // Fetch weekly budgets for the selected week
+  // Fetch ALL weekly budgets - we'll filter client-side for the calendar view
   const { data: weeklyBudgets = [], isLoading: loadingBudgets } = useQuery({
-    queryKey: ['weeklyBudgets', selectedWeek],
+    queryKey: ['weeklyBudgets', 'all'],
     queryFn: async () => {
-      const weekStart = startOfWeek(selectedWeek, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(selectedWeek, { weekStartsOn: 1 });
+      // Fetch a wide range - 3 months back and 12 months forward
+      const rangeStart = new Date();
+      rangeStart.setMonth(rangeStart.getMonth() - 3);
+      rangeStart.setHours(0, 0, 0, 0);
       
-      // Adjust for timezone - set to start and end of day
-      weekStart.setHours(0, 0, 0, 0);
-      weekEnd.setHours(23, 59, 59, 999);
+      const rangeEnd = new Date();
+      rangeEnd.setMonth(rangeEnd.getMonth() + 12);
+      rangeEnd.setHours(23, 59, 59, 999);
       
-      console.log('Fetching weekly budgets for:', {
-        start: format(weekStart, 'yyyy-MM-dd'),
-        end: format(weekEnd, 'yyyy-MM-dd'),
-        weekStart,
-        weekEnd
-      });
+      console.log('Fetching weekly budgets from:', format(rangeStart, 'yyyy-MM-dd'), 'to:', format(rangeEnd, 'yyyy-MM-dd'));
       
       const response = await axios.get('/api/weekly-budget/range', {
         params: {
-          startDate: weekStart.toISOString(),
-          endDate: weekEnd.toISOString()
+          startDate: rangeStart.toISOString(),
+          endDate: rangeEnd.toISOString()
         }
       });
       console.log('Weekly budgets response:', response.data);
       return response.data || [];
-    }
+    },
+    staleTime: 30000, // Consider data fresh for 30 seconds
   });
 
   // Create payment mutation
   const createPaymentMutation = useMutation({
     mutationFn: async (data: PaymentFormData) => {
+      console.log('Creating payment:', data);
       const response = await axios.post('/api/payments', data);
+      console.log('Payment created:', response.data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Payment creation successful, refetching...');
+      // Invalidate all related queries to refresh the calendar
+      queryClient.invalidateQueries({ queryKey: ['allPayments'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['upcomingPayments'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['mainBudgets'] });
+      
+      // Also directly refetch to ensure immediate update
+      setTimeout(() => {
+        refetchPayments();
+      }, 100);
+      
       toast.success('Payment scheduled successfully');
       handleCloseDialog();
+      
+      // Navigate to the date of the new payment so it's visible in the calendar
+      if (data.dueDate) {
+        console.log('Navigating calendar to:', data.dueDate);
+        setSelectedWeek(new Date(data.dueDate));
+      }
     },
     onError: (error: any) => {
+      console.error('Payment creation failed:', error);
       toast.error(error.response?.data?.error || 'Failed to schedule payment');
     }
   });
@@ -248,7 +281,7 @@ const PaymentScheduleComponent: React.FC = () => {
   //   }
   // });
 
-  const handleOpenDialog = (payment?: PaymentSchedule | any) => {
+  const handleOpenDialog = (payment?: PaymentSchedule | any, selectedDate?: Date) => {
     if (payment) {
       // Check if this is a weekly budget item
       if (payment.fromWeeklyBudget) {
@@ -275,7 +308,7 @@ const PaymentScheduleComponent: React.FC = () => {
         name: '',
         amount: 0,
         categoryId: '',
-        dueDate: format(new Date(), 'yyyy-MM-dd'),
+        dueDate: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
         frequency: 'once',
         notes: '',
         reminder: {
@@ -287,6 +320,12 @@ const PaymentScheduleComponent: React.FC = () => {
       });
     }
     setOpenDialog(true);
+  };
+  
+  // Handle clicking on an empty slot in the calendar
+  const handleSelectSlot = (slotInfo: { start: Date; end: Date; action: string }) => {
+    // Open dialog with the selected date
+    handleOpenDialog(undefined, slotInfo.start);
   };
 
   const handleCloseDialog = () => {
@@ -305,20 +344,27 @@ const PaymentScheduleComponent: React.FC = () => {
   // Convert payments to calendar events
   // Group payments by date first
   const paymentsByDate: { [key: string]: PaymentSchedule[] } = {};
+  console.log('=== PROCESSING PAYMENTS FOR CALENDAR ===');
+  console.log('Total payments received:', payments.length);
+  console.log('Payments data:', payments);
+  
   payments.forEach((payment: PaymentSchedule) => {
-    // Skip payments that come from weekly budgets to avoid duplicates
-    if (payment.fromWeeklyBudget) {
-      return;
-    }
+    console.log('Processing payment:', payment.name, 'dueDate:', payment.dueDate);
+    // Show all payments from PaymentSchedule - they are the source of truth
+    // Weekly budget payments will be shown separately from the budget data
     const dateKey = payment.dueDate.split('T')[0];
+    console.log('  dateKey:', dateKey);
     if (!paymentsByDate[dateKey]) {
       paymentsByDate[dateKey] = [];
     }
     paymentsByDate[dateKey].push(payment);
   });
   
+  console.log('Payments grouped by date:', Object.keys(paymentsByDate));
+  
   const paymentEvents: CalendarEvent[] = [];
   Object.entries(paymentsByDate).forEach(([dateKey, datePayments]) => {
+    console.log('Creating events for date:', dateKey, 'count:', datePayments.length);
     datePayments.forEach((payment: PaymentSchedule, index: number) => {
       // Parse the date and add hours to distribute events
       const eventDate = parseISO(payment.dueDate);
@@ -327,19 +373,26 @@ const PaymentScheduleComponent: React.FC = () => {
       const minutes = (index % 2) * 30; // Alternate between :00 and :30
       eventDate.setHours(hour, minutes, 0, 0);
       
-      paymentEvents.push({
+      const event = {
         id: payment._id,
         title: `💰 ${payment.name} ($${payment.amount})`,
         start: eventDate,
         end: eventDate,
         resource: payment
-      });
+      };
+      console.log('Created event:', event.title, 'start:', event.start);
+      paymentEvents.push(event);
     });
   });
+  
+  console.log('Total payment events created:', paymentEvents.length);
 
   // Convert weekly budget allocations to calendar events
   const budgetEvents: CalendarEvent[] = [];
   console.log('Processing weekly budgets:', weeklyBudgets);
+  
+  // Create a set of PaymentSchedule IDs to avoid duplicates
+  const paymentScheduleIds = new Set(payments.map((p: PaymentSchedule) => p._id));
   
   // Group allocations by date to handle time distribution better
   const allocationsByDate: { [key: string]: any[] } = {};
@@ -352,6 +405,12 @@ const PaymentScheduleComponent: React.FC = () => {
       budget.categories.forEach((category: any) => {
         if (category.payments && category.payments.length > 0) {
           category.payments.forEach((payment: any) => {
+            // Skip if this payment is already in PaymentSchedule (avoid duplicates)
+            if (payment.paymentScheduleId && paymentScheduleIds.has(payment.paymentScheduleId)) {
+              console.log('Skipping duplicate payment from budget:', payment.name);
+              return;
+            }
+            
             if (payment.scheduledDate) {
               const dateKey = payment.scheduledDate.split('T')[0];
               if (!allocationsByDate[dateKey]) {
@@ -426,6 +485,14 @@ const PaymentScheduleComponent: React.FC = () => {
 
   // Combine all events
   const calendarEvents: CalendarEvent[] = [...paymentEvents, ...budgetEvents];
+  
+  console.log('=== FINAL CALENDAR EVENTS ===');
+  console.log('Payment events:', paymentEvents.length);
+  console.log('Budget events:', budgetEvents.length);
+  console.log('Total calendar events:', calendarEvents.length);
+  calendarEvents.forEach(e => {
+    console.log('  Event:', e.title, 'Date:', e.start);
+  });
 
   // Calculate weekly statistics including budget allocations
   const allPayments = [...payments];
@@ -448,7 +515,9 @@ const PaymentScheduleComponent: React.FC = () => {
 
   const eventStyleGetter = (event: CalendarEvent) => {
     const payment = event.resource;
-    let backgroundColor = payment.categoryId.color;
+    // Default color if categoryId is missing
+    const categoryColor = payment.categoryId?.color || '#1976d2';
+    let backgroundColor = categoryColor;
     let border = '0px';
     let opacity = 0.9;
     let fontSize = '11px';
@@ -462,7 +531,7 @@ const PaymentScheduleComponent: React.FC = () => {
     
     // Special styling for weekly budget items
     if ((payment as any).fromWeeklyBudget) {
-      border = '2px solid ' + payment.categoryId.color;
+      border = '2px solid ' + categoryColor;
       backgroundColor = 'white';
       opacity = 1;
     }
@@ -472,7 +541,7 @@ const PaymentScheduleComponent: React.FC = () => {
         backgroundColor,
         borderRadius: '6px',
         opacity,
-        color: (payment as any).fromWeeklyBudget ? payment.categoryId.color : 'white',
+        color: (payment as any).fromWeeklyBudget ? categoryColor : 'white',
         border: border,
         display: 'block',
         padding: '3px 6px',
@@ -495,13 +564,24 @@ const PaymentScheduleComponent: React.FC = () => {
         <Typography variant="h4" fontWeight="bold">
           Payment Schedule
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          Schedule Payment
-        </Button>
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              refetchPayments();
+              toast.info('Refreshing payments...');
+            }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+          >
+            Schedule Payment
+          </Button>
+        </Box>
       </Box>
 
       {/* Weekly Summary */}
@@ -606,9 +686,13 @@ const PaymentScheduleComponent: React.FC = () => {
         <>
           {tabValue === 0 && (
             <Paper sx={{ height: 600, p: { xs: 2, sm: 2.5 }, borderRadius: 2, boxShadow: 2 }}>
-              <Box mb={1}>
+              <Box mb={1} display="flex" justifyContent="space-between" alignItems="center">
                 <Typography variant="caption" color="textSecondary">
                   Showing {paymentEvents.length} payments and {budgetEvents.length} weekly budget items
+                  {payments.length === 0 && ' (No payments found - click on a day to add one)'}
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  Total in database: {payments.length} payments
                 </Typography>
               </Box>
               <Box sx={{
@@ -664,7 +748,11 @@ const PaymentScheduleComponent: React.FC = () => {
                   style={{ height: '100%' }}
                   eventPropGetter={eventStyleGetter}
                   onSelectEvent={(event: CalendarEvent) => handleOpenDialog(event.resource)}
+                  onSelectSlot={handleSelectSlot}
+                  selectable
                   views={['day', 'week', 'month']}
+                  view={calendarView}
+                  onView={(view: any) => setCalendarView(view)}
                   defaultView="week"
                   onNavigate={(date: Date) => setSelectedWeek(date)}
                   messages={{

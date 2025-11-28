@@ -678,8 +678,7 @@ const CreateMainBudgetDialog: React.FC<CreateMainBudgetDialogProps> = ({
     <Dialog 
       open={open} 
       onClose={onClose}
-      maxWidth="md"
-      fullWidth
+      className="budget-dialog"
     >
       <DialogTitle>
         Create Main Budget

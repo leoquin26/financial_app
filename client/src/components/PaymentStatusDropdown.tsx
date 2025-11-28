@@ -94,7 +94,6 @@ const PaymentStatusDropdown: React.FC<PaymentStatusDropdownProps> = ({
     }, 300); // 300ms debounce
   }, [paymentId, currentStatus, onStatusChange, isUpdating]);
 
-  const config = statusConfig[localStatus] || statusConfig.pending;
 
   // Cleanup debounce timer on unmount
   React.useEffect(() => {

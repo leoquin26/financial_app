@@ -43,6 +43,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import NotificationMenu from './NotificationMenu';
+import NotificationToast from './NotificationToast';
 import FloatingQuickPayment from './FloatingQuickPayment';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import OfflineIndicator from './OfflineIndicator';
@@ -60,6 +61,7 @@ const drawerWidth = 240;
     { text: 'Categorías', icon: <CategoryIcon />, path: '/categories' },
     { text: 'Análisis', icon: <AnalyticsIcon />, path: '/analytics' },
     { text: 'Hogares', icon: <HomeIcon />, path: '/households' },
+    { text: 'Notificaciones', icon: <NotificationsIcon />, path: '/notifications' },
     { text: 'Configuración', icon: <SettingsIcon />, path: '/settings' },
   ];
 
@@ -293,6 +295,9 @@ const Layout: React.FC = () => {
           position={userSettings?.preferences?.floatingButtonPosition || 'bottom-right'}
         />
       )}
+      
+      {/* Real-time Notification Toasts */}
+      <NotificationToast />
       
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />

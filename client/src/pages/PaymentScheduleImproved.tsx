@@ -47,7 +47,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '../config/api';
-import { format, startOfWeek, endOfWeek, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { formatCurrency, getCurrencySymbol } from '../utils/currencies';
 import { useAuth } from '../contexts/AuthContext';
 import FullCalendar from '@fullcalendar/react';
@@ -121,7 +121,7 @@ const PaymentScheduleImproved: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [tabValue, setTabValue] = useState(0);
-  const [selectedWeek, setSelectedWeek] = useState(new Date());
+  // selectedWeek state removed - now fetching all payments
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<PaymentSchedule | null>(null);
   const [filter, setFilter] = useState('all');
@@ -153,51 +153,75 @@ const PaymentScheduleImproved: React.FC = () => {
     },
   });
 
-  // Fetch payments for the selected week
-  const weekStart = startOfWeek(selectedWeek, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(selectedWeek, { weekStartsOn: 1 });
-
-  const { data: payments = [], isLoading, refetch } = useQuery({
-    queryKey: ['payments', weekStart.toISOString()],
+  // Fetch ALL payments (no date filtering)
+  const { data: payments = [], isLoading, refetch: refetchPayments } = useQuery({
+    queryKey: ['allPayments'],
     queryFn: async () => {
-      const response = await axios.get('/api/payments', {
-        params: {
-          from: format(weekStart, 'yyyy-MM-dd'),
-          to: format(weekEnd, 'yyyy-MM-dd')
-        },
-      });
-      return response.data;
-    },
-  });
-
-  // Fetch weekly budgets for the selected range
-  const { data: weeklyBudgets = [], isLoading: loadingBudgets } = useQuery({
-    queryKey: ['weeklyBudgets', 'range', weekStart.toISOString()],
-    queryFn: async () => {
-      const response = await axios.get('/api/weekly-budget/range', {
-        params: {
-          startDate: weekStart.toISOString(),
-          endDate: weekEnd.toISOString(),
-        },
-      });
-      console.log('Weekly budgets response:', response.data);
+      console.log('Fetching ALL payments...');
+      const response = await axios.get('/api/payments/all');
+      console.log('Payments received:', response.data?.length || 0);
       return response.data || [];
     },
+    staleTime: 0, // Always fetch fresh data
+    refetchOnWindowFocus: true,
+  });
+
+  // Fetch ALL weekly budgets
+  const { data: weeklyBudgets = [], isLoading: loadingBudgets, refetch: refetchBudgets } = useQuery({
+    queryKey: ['allWeeklyBudgets'],
+    queryFn: async () => {
+      // Fetch a wide range - 6 months back and 12 months forward
+      const rangeStart = new Date();
+      rangeStart.setMonth(rangeStart.getMonth() - 6);
+      const rangeEnd = new Date();
+      rangeEnd.setMonth(rangeEnd.getMonth() + 12);
+      
+      const response = await axios.get('/api/weekly-budget/range', {
+        params: {
+          startDate: rangeStart.toISOString(),
+          endDate: rangeEnd.toISOString(),
+        },
+      });
+      console.log('Weekly budgets response:', response.data?.length || 0);
+      return response.data || [];
+    },
+    staleTime: 0, // Always fetch fresh data
+    refetchOnWindowFocus: true,
   });
 
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (data: PaymentFormData) => {
+      console.log('Creating payment:', data);
       const response = await axios.post('/api/payments', data);
+      console.log('Payment created:', response.data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Payment creation successful, refetching...');
+      queryClient.invalidateQueries({ queryKey: ['allPayments'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['allWeeklyBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
+      
+      // Force refetch both queries
+      setTimeout(() => {
+        refetchPayments();
+        refetchBudgets();
+      }, 100);
+      
       toast.success('Payment created successfully');
       setOpenDialog(false);
       resetForm();
+      
+      // Navigate calendar to the payment date
+      if (data.dueDate && calendarRef.current) {
+        const api = calendarRef.current.getApi();
+        api.gotoDate(new Date(data.dueDate));
+      }
     },
     onError: (error: any) => {
+      console.error('Payment creation failed:', error);
       toast.error(error.response?.data?.error || 'Failed to create payment');
     },
   });
@@ -208,8 +232,17 @@ const PaymentScheduleImproved: React.FC = () => {
       const response = await axios.patch(`/api/payments/${id}`, data);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate all payment-related queries to refresh the calendar
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['allPayments'] });
+      queryClient.invalidateQueries({ queryKey: ['allWeeklyBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      
+      // Force refetch to update the calendar immediately
+      await Promise.all([refetchPayments(), refetchBudgets()]);
+      
       toast.success('Payment updated successfully');
       setOpenDialog(false);
       setSelectedPayment(null);
@@ -226,7 +259,11 @@ const PaymentScheduleImproved: React.FC = () => {
       await axios.delete(`/api/payments/${id}`);
     },
     onSuccess: () => {
+      // Invalidate all payment-related queries to refresh the calendar
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['allPayments'] });
+      queryClient.invalidateQueries({ queryKey: ['allWeeklyBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
       toast.success('Payment deleted successfully');
       setOpenDialog(false);
       setSelectedPayment(null);
@@ -237,44 +274,28 @@ const PaymentScheduleImproved: React.FC = () => {
   });
 
   // Transform payments to calendar events
+  // We need to deduplicate because a payment can exist in both PaymentSchedule AND WeeklyBudget
   const calendarEvents: CalendarEvent[] = [];
   const processedPaymentIds = new Set<string>();
 
   // Debug logging
   console.log('Payments data:', payments);
   console.log('Weekly budgets data:', weeklyBudgets);
-  console.log('Payments with weeklyBudgetId:', payments.filter((p: PaymentSchedule) => p.weeklyBudgetId));
 
-  // Process weekly budget payments first to mark them as processed
-  weeklyBudgets.forEach((budget: any) => {
-    if (budget.categories && budget.categories.length > 0) {
-      budget.categories.forEach((category: any) => {
-        if (category.payments && category.payments.length > 0) {
-          category.payments.forEach((payment: any) => {
-            const paymentId = payment._id || payment.paymentScheduleId;
-            processedPaymentIds.add(paymentId);
-          });
-        }
-      });
-    }
-  });
-
-  // Process standalone payments (skip if already in weekly budget)
+  // First, process payments from PaymentSchedule collection
+  // These are the "source of truth" for payments created via the calendar
   payments.forEach((payment: PaymentSchedule) => {
-    // Skip if this payment was already processed from weekly budget
+    // Skip if already processed
     if (processedPaymentIds.has(payment._id)) {
       return;
     }
     
-    // Also skip if this payment has a weeklyBudgetId (it belongs to a budget)
-    if (payment.weeklyBudgetId) {
-      console.log('Skipping payment with weeklyBudgetId:', payment.name, payment.weeklyBudgetId);
-      return;
-    }
+    processedPaymentIds.add(payment._id);
 
     const eventDate = parseISO(payment.dueDate);
-    let backgroundColor = payment.categoryId.color;
-    let borderColor = payment.categoryId.color;
+    const categoryColor = payment.categoryId?.color || '#1976d2';
+    let backgroundColor = categoryColor;
+    let borderColor = categoryColor;
     let textColor = '#fff';
 
     if (payment.status === 'paid') {
@@ -285,6 +306,9 @@ const PaymentScheduleImproved: React.FC = () => {
       borderColor = '#f44336';
     }
 
+    // Check if this payment is linked to a weekly budget
+    const isFromBudget = !!payment.weeklyBudgetId;
+    
     calendarEvents.push({
       id: payment._id,
       title: `💰 ${payment.name} (${formatCurrency(payment.amount, user?.currency || 'PEN')})`,
@@ -294,20 +318,43 @@ const PaymentScheduleImproved: React.FC = () => {
       borderColor,
       textColor,
       extendedProps: {
-        payment: payment
+        payment: {
+          ...payment,
+          fromWeeklyBudget: isFromBudget
+        }
       }
     });
   });
 
-  // Process weekly budget payments
+  // Then process weekly budget payments that DON'T have a paymentScheduleId
+  // (these are payments created directly in the budget, not via calendar)
   weeklyBudgets.forEach((budget: any) => {
     if (budget.categories && budget.categories.length > 0) {
       budget.categories.forEach((category: any) => {
         if (category.payments && category.payments.length > 0) {
           category.payments.forEach((payment: any) => {
+            // Get the ID - could be the payment's own _id or a linked paymentScheduleId
+            const paymentId = payment.paymentScheduleId || payment._id;
+            
+            // Skip if this payment was already added from PaymentSchedule
+            if (processedPaymentIds.has(paymentId)) {
+              console.log('Skipping budget payment (already in PaymentSchedule):', payment.name);
+              return;
+            }
+            
+            // Also skip if we've seen this specific budget payment ID
+            if (processedPaymentIds.has(payment._id)) {
+              return;
+            }
+            
+            processedPaymentIds.add(payment._id);
+            if (paymentId !== payment._id) {
+              processedPaymentIds.add(paymentId);
+            }
+
             const eventDate = parseISO(payment.scheduledDate || payment.dueDate);
-            let backgroundColor = category.categoryId.color;
-            let borderColor = category.categoryId.color;
+            let backgroundColor = category.categoryId?.color || '#1976d2';
+            let borderColor = backgroundColor;
             let textColor = '#fff';
 
             if (payment.status === 'paid') {
@@ -316,7 +363,7 @@ const PaymentScheduleImproved: React.FC = () => {
             }
 
             const budgetPayment: PaymentSchedule = {
-              _id: payment._id || payment.paymentScheduleId,
+              _id: payment._id,
               name: payment.name,
               amount: payment.amount,
               categoryId: category.categoryId,
@@ -348,6 +395,8 @@ const PaymentScheduleImproved: React.FC = () => {
       });
     }
   });
+  
+  console.log('Total unique calendar events:', calendarEvents.length);
 
   // Debug calendar events
   console.log('Calendar events:', calendarEvents);
@@ -379,9 +428,15 @@ const PaymentScheduleImproved: React.FC = () => {
   console.log('Unique payments:', uniquePayments.length);
 
   const handleDateClick = (arg: any) => {
+    // FullCalendar provides the date in local timezone
+    // We need to format it as ISO date string with time to preserve the correct date
+    const clickedDate = arg.date;
+    // Set to noon to avoid timezone issues
+    clickedDate.setHours(12, 0, 0, 0);
+    
     setFormData(prev => ({
       ...prev,
-      dueDate: format(arg.date, 'yyyy-MM-dd')
+      dueDate: format(clickedDate, 'yyyy-MM-dd')
     }));
     setOpenDialog(true);
   };
@@ -446,19 +501,33 @@ const PaymentScheduleImproved: React.FC = () => {
     });
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = () => {
     if (!formData.name || formData.amount <= 0 || !formData.categoryId) {
       toast.error('Please fill in all required fields');
       return;
     }
 
+    // Prevent double submission
+    if (isSubmitting || createMutation.isPending || updateMutation.isPending) {
+      console.log('Submission already in progress, ignoring...');
+      return;
+    }
+
+    setIsSubmitting(true);
+
     if (selectedPayment) {
       updateMutation.mutate({
         id: selectedPayment._id,
         data: formData,
+      }, {
+        onSettled: () => setIsSubmitting(false)
       });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(formData, {
+        onSettled: () => setIsSubmitting(false)
+      });
     }
   };
 
@@ -471,7 +540,16 @@ const PaymentScheduleImproved: React.FC = () => {
   const handleStatusChange = async (paymentId: string, newStatus: string) => {
     try {
       await axios.patch(`/api/payments/${paymentId}`, { status: newStatus });
+      // Invalidate all payment-related queries to refresh the calendar
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['allPayments'] });
+      queryClient.invalidateQueries({ queryKey: ['allWeeklyBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyBudgets'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      
+      // Force refetch to update the calendar immediately
+      await Promise.all([refetchPayments(), refetchBudgets()]);
+      
       toast.success('Status updated successfully');
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to update status');
@@ -506,7 +584,7 @@ const PaymentScheduleImproved: React.FC = () => {
           >
             New Payment
           </Button>
-          <IconButton onClick={() => refetch()} color="primary">
+          <IconButton onClick={() => { refetchPayments(); refetchBudgets(); }} color="primary">
             <RefreshIcon />
           </IconButton>
         </Box>
@@ -921,10 +999,8 @@ const PaymentScheduleImproved: React.FC = () => {
       {/* Create/Edit Dialog */}
       <Dialog 
         open={openDialog} 
-        onClose={handleCloseDialog} 
-        maxWidth="sm" 
-        fullWidth
-        fullScreen={isMobile}
+        onClose={handleCloseDialog}
+        className="payment-dialog"
       >
         <DialogTitle>
           {selectedPayment ? 'Edit Payment' : 'Create New Payment'}

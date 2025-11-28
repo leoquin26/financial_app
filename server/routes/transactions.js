@@ -94,8 +94,11 @@ router.get('/', authMiddleware, async (req, res) => {
             minAmount, 
             maxAmount,
             page = 1,
-            limit = 50
+            limit = 50,
+            offset
         } = req.query;
+
+        console.log('GET /api/transactions - userId:', req.userId, 'params:', { type, categoryId, page, limit, offset });
 
         // Build query
         const query = { userId: req.userId };
@@ -113,8 +116,15 @@ router.get('/', authMiddleware, async (req, res) => {
             if (endDate) query.date.$lte = new Date(endDate);
         }
 
-        // Calculate pagination
-        const skip = (parseInt(page) - 1) * parseInt(limit);
+        // Calculate pagination - support both offset and page
+        let skip;
+        if (offset !== undefined) {
+            skip = parseInt(offset);
+        } else {
+            skip = (parseInt(page) - 1) * parseInt(limit);
+        }
+
+        console.log('Query:', JSON.stringify(query), 'Skip:', skip, 'Limit:', limit);
 
         // Get transactions with category details
         const transactions = await Transaction.find(query)
@@ -125,6 +135,8 @@ router.get('/', authMiddleware, async (req, res) => {
 
         // Get total count for pagination
         const total = await Transaction.countDocuments(query);
+
+        console.log('Found', transactions.length, 'transactions, total:', total);
 
         res.json({
             transactions,

@@ -856,8 +856,7 @@ const WeeklyBudgetSimplified: React.FC = () => {
       <Dialog
         open={openCategorySelector}
         onClose={() => setOpenCategorySelector(false)}
-        maxWidth="sm"
-        fullWidth
+        className="category-dialog"
       >
         <DialogTitle>Add Categories to Budget</DialogTitle>
         <DialogContent>
@@ -1001,7 +1000,11 @@ const WeeklyBudgetSimplified: React.FC = () => {
                       </Typography>
                       <Typography variant="body2" color="textSecondary">
                         {hasPayments && categoryData
-                          ? `${formatCurrency(categoryData.totalAmount, user?.currency || 'PEN')} - ${categoryData.payments.length} payment${categoryData.payments.length > 1 ? 's' : ''}`
+                          ? (() => {
+                              const paidCount = categoryData.payments.filter((p: any) => p.status === 'paid').length;
+                              const totalCount = categoryData.payments.length;
+                              return `${formatCurrency(categoryData.totalAmount, user?.currency || 'PEN')} - ${paidCount} paid / ${totalCount} payment${totalCount > 1 ? 's' : ''}`;
+                            })()
                           : 'No payments scheduled'
                         }
                       </Typography>
@@ -1011,45 +1014,49 @@ const WeeklyBudgetSimplified: React.FC = () => {
                     </IconButton>
                   </Box>
                   
-                  {/* Budget Allocation Bar */}
+                  {/* Budget Progress Bar */}
                   {(() => {
                     const budgetCategory = currentBudget?.categories?.find((cat: any) => 
                       (cat.categoryId._id || cat.categoryId) === category._id
                     );
                     const allocation = budgetCategory?.allocation || 0;
-                    const spent = categoryData?.totalAmount || 0;
                     
-                    if (allocation > 0) {
-                      return (
-                        <Box sx={{ mt: 2 }}>
-                          <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
-                            <Typography variant="caption" color="textSecondary">
-                              Budget
-                            </Typography>
-                            <Typography variant="caption" fontWeight="bold">
-                              {formatCurrency(spent, user?.currency || 'PEN')} / {formatCurrency(allocation, user?.currency || 'PEN')}
-                            </Typography>
-                          </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={Math.min((spent / allocation) * 100, 100)}
-                            sx={{
-                              height: 8,
-                              borderRadius: 1,
-                              backgroundColor: 'action.hover',
-                              '& .MuiLinearProgress-bar': {
-                                borderRadius: 1,
-                                backgroundColor: 
-                                  spent > allocation ? 'error.main' : 
-                                  spent > allocation * 0.8 ? 'warning.main' : 
-                                  'success.main',
-                              },
-                            }}
-                          />
+                    // Calculate actual paid amount from payments
+                    const paidAmount = categoryData?.payments?.filter((p: any) => p.status === 'paid')
+                      .reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
+                    
+                    // Always show the progress bar, even if allocation is 0
+                    const displayAllocation = allocation > 0 ? allocation : (categoryData?.totalAmount || 30);
+                    const progressPercentage = displayAllocation > 0 ? Math.min((paidAmount / displayAllocation) * 100, 100) : 0;
+                    
+                    return (
+                      <Box sx={{ mt: 2 }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                          <Typography variant="caption" color="textSecondary">
+                            Budget
+                          </Typography>
+                          <Typography variant="caption" fontWeight="bold">
+                            {formatCurrency(paidAmount, user?.currency || 'PEN')} / {formatCurrency(displayAllocation, user?.currency || 'PEN')}
+                          </Typography>
                         </Box>
-                      );
-                    }
-                    return null;
+                        <LinearProgress
+                          variant="determinate"
+                          value={progressPercentage}
+                          sx={{
+                            height: 8,
+                            borderRadius: 1,
+                            backgroundColor: 'action.hover',
+                            '& .MuiLinearProgress-bar': {
+                              borderRadius: 1,
+                              backgroundColor: 
+                                paidAmount > displayAllocation ? 'error.main' : 
+                                paidAmount > displayAllocation * 0.8 ? 'warning.main' : 
+                                'success.main',
+                            },
+                          }}
+                        />
+                      </Box>
+                    );
                   })()}
                 </CardContent>
 

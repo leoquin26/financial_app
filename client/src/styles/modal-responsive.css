@@ -1,0 +1,22 @@
+/* Additional Modal Utilities */
+/* Note: Main styles are in modal-fixes.css */
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Scrollbar styling */
+.MuiDialogContent-root {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+/* iOS safe area support */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  @media (max-width: 480px) {
+    .MuiDialogActions-root {
+      padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+    }
+  }
+}

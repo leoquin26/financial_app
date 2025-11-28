@@ -29,6 +29,7 @@ import HouseholdDetail from './pages/HouseholdDetail';
 import PaymentSchedule from './pages/PaymentScheduleImproved';
 import WeeklyBudgetSimplified from './pages/WeeklyBudgetSimplified';
 import MainBudgets from './pages/MainBudgets';
+import Notifications from './pages/Notifications';
 
 // Components
 import Layout from './components/Layout';
@@ -106,6 +107,7 @@ function App() {
                     <Route path="budgets/week/:weekId" element={<WeeklyBudgetSimplified />} />
                     <Route path="weekly-budget" element={<Navigate to="/budgets" replace />} />
                     <Route path="weekly-budget/:id" element={<WeeklyBudgetSimplified />} />
+                    <Route path="notifications" element={<Notifications />} />
                     <Route path="settings" element={<Settings />} />
                   </Route>
                 </Routes>
